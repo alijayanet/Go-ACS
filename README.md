@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/Platform-Linux-orange?style=for-the-badge&logo=linux&logoColor=white" alt="Platform">
 </p>
 
-**Go-ACS** adalah Auto Configuration Server (ACS) berbasis Go untuk manajemen perangkat CPE/ONU menggunakan protokol TR-069 (CWMP). Dilengkapi dengan Customer Portal untuk pelanggan ISP.
+**Go-ACS** adalah Auto Configuration Server (ACS) berbasis Go untuk manajemen perangkat CPE/ONU menggunakan protokol TR-069 (CWMP). Dilengkapi dengan Customer Portal untuk pelanggan RTRW Net.
 
 ## 🚀 Fitur Utama
 
@@ -237,3 +237,4 @@ Jika project ini bermanfaat, jangan lupa berikan ⭐ di [GitHub](https://github.
   <b>Go-ACS</b> - TR-069 Auto Configuration Server<br>
   Dibuat dengan ❤️ untuk RT-RW Net Indonesia
 </p>
+
