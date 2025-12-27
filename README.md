@@ -70,10 +70,7 @@ Setelah instalasi selesai, akses melalui browser:
 
 USER="admin"
 PASS="admin123"
-```
 
-
-```
 ✅ Go-ACS Installation Complete!
 
 📍 Server: 192.168.1.1
@@ -229,5 +226,6 @@ Jika project ini bermanfaat, jangan lupa berikan ⭐ di [GitHub](https://github.
   <b>Go-ACS</b> - TR-069 Auto Configuration Server<br>
   Dibuat dengan ❤️ untuk RT-RW Net Indonesia
 </p>
+
 
 
