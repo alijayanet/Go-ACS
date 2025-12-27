@@ -59,10 +59,10 @@ Setelah instalasi selesai, akses melalui browser:
 
 | Halaman | URL |
 |---------|-----|
-| **Admin Panel** | `http://YOUR_IP:7547/web/templates/index.html` |
-| **Admin Login** | `http://YOUR_IP:7547/web/templates/login.html` |
-| **Map View** | `http://YOUR_IP:7547/web/templates/map.html` |
-| **Customer Login** | `http://YOUR_IP:7547/web/templates/customer_login.html` |
+| **Admin Panel** | `http://YOUR_IP:7547/web/index.html` |
+| **Admin Login** | `http://YOUR_IP:7547/web/login.html` |
+| **Map View** | `http://YOUR_IP:7547/web/map.html` |
+| **Customer Login** | `http://YOUR_IP:7547/web/customer_login.html` |
 
 ## 🔧 Konfigurasi
 
@@ -226,6 +226,7 @@ Jika project ini bermanfaat, jangan lupa berikan ⭐ di [GitHub](https://github.
   <b>Go-ACS</b> - TR-069 Auto Configuration Server<br>
   Dibuat dengan ❤️ untuk RT-RW Net Indonesia
 </p>
+
 
 
 
