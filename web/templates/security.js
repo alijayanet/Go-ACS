@@ -370,6 +370,9 @@
         const isPrivateIP = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(hostname);
 
         if (window.location.protocol !== 'https:' && !isLocalhost && !isPrivateIP) {
+            // HTTPS warning - disabled because many deployments use HTTP behind proxy
+            // Uncomment below to show warning
+            /*
             console.warn('WARNING: Not using HTTPS! Your data is not encrypted.');
 
             // Show warning banner only for public access
@@ -377,6 +380,7 @@
             banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ff9800;color:#fff;padding:10px;text-align:center;z-index:9999;';
             banner.innerHTML = '<strong>⚠️ Security Warning:</strong> This connection is not secure. Please use HTTPS.';
             document.body.insertBefore(banner, document.body.firstChild);
+            */
         }
 
         // Check security headers
