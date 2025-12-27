@@ -66,14 +66,6 @@ Setelah instalasi selesai, akses melalui browser:
 
 ## 🔧 Konfigurasi
 
-### File Konfigurasi
-
-```bash
-/opt/acs/.env
-```
-
-```
-
 ### 🔐 Admin Credentials
 
 USER="admin"
@@ -237,4 +229,5 @@ Jika project ini bermanfaat, jangan lupa berikan ⭐ di [GitHub](https://github.
   <b>Go-ACS</b> - TR-069 Auto Configuration Server<br>
   Dibuat dengan ❤️ untuk RT-RW Net Indonesia
 </p>
+
 
