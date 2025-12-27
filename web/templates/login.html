@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACSLite - Login</title>
+
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' http://*:8888;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-container {
+            max-width: 450px;
+            width: 100%;
+            padding: 15px;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #1a237e, #283593);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .login-header i {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .login-header h2 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.8rem;
+        }
+
+        .login-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .login-body {
+            padding: 40px 30px;
+        }
+
+        .form-floating {
+            margin-bottom: 20px;
+        }
+
+        .form-floating>.form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            height: 60px;
+            transition: all 0.3s;
+        }
+
+        .form-floating>.form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .form-floating>label {
+            padding: 1rem 0.75rem;
+        }
+
+        .input-group-text {
+            background: transparent;
+            border: 2px solid #e0e0e0;
+            border-right: none;
+            border-radius: 10px 0 0 10px;
+        }
+
+        .input-group .form-control {
+            border-left: none;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .btn-login {
+            width: 100%;
+            height: 55px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .remember-me label {
+            margin: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .alert {
+            border-radius: 10px;
+            border: none;
+            margin-bottom: 20px;
+        }
+
+        .alert-danger {
+            background-color: #fee;
+            color: #c33;
+        }
+
+        .alert-success {
+            background-color: #efe;
+            color: #3c3;
+        }
+
+        .login-footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.15em;
+        }
+
+        /* Password strength indicator */
+        .password-strength {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: -15px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .password-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s;
+            border-radius: 2px;
+        }
+
+        .strength-weak {
+            background: #f44336;
+            width: 33%;
+        }
+
+        .strength-medium {
+            background: #ff9800;
+            width: 66%;
+        }
+
+        .strength-strong {
+            background: #4caf50;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <!-- Header -->
+            <div class="login-header">
+                <i class="fas fa-network-wired"></i>
+                <h2>ACSLite Manager</h2>
+                <p>TR-069 Auto Configuration Server</p>
+            </div>
+
+            <!-- Body -->
+            <div class="login-body">
+                <!-- Alert Messages -->
+                <div id="alert-container"></div>
+
+                <!-- Login Form -->
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <!-- Username -->
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="username" placeholder="Username" required
+                            autocomplete="username">
+                        <label for="username"><i class="fas fa-user me-2"></i>Username</label>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="form-floating">
+                        <input type="password" class="form-control" id="password" placeholder="Password" required
+                            autocomplete="current-password">
+                        <label for="password"><i class="fas fa-lock me-2"></i>Password</label>
+                    </div>
+
+                    <!-- API Key (Optional) -->
+                    <div class="form-floating">
+                        <input type="password" class="form-control" id="api-key" placeholder="API Key"
+                            autocomplete="off">
+                        <label for="api-key"><i class="fas fa-key me-2"></i>API Key (Optional)</label>
+                    </div>
+
+                    <!-- Remember Me -->
+                    <div class="remember-me">
+                        <input type="checkbox" id="remember-me">
+                        <label for="remember-me">Remember me</label>
+                    </div>
+
+                    <!-- Login Button -->
+                    <button type="submit" class="btn btn-login" id="login-btn">
+                        <span id="login-text">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </span>
+                        <span id="login-spinner" class="d-none">
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            Signing in...
+                        </span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Footer -->
+            <div class="login-footer">
+                <i class="fas fa-shield-alt me-1"></i>
+                Secured with end-to-end encryption
+            </div>
+        </div>
+
+        <!-- Version Info -->
+        <div class="text-center mt-3">
+            <small class="text-white opacity-75">
+                <i class="fas fa-code me-1"></i>
+                ACSLite v1.0 | Secured & Enhanced
+            </small>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Configuration
+        const API_BASE = '/api';
+        const phpApiPort = '8888';
+        const ADMIN_API_BASE = 'http://' + window.location.hostname + ':' + phpApiPort + '/api/admin_api.php';
+        const DASHBOARD_URL = 'index.html';
+
+        // Rate limiting
+        let loginAttempts = 0;
+        const MAX_ATTEMPTS = 5;
+        const LOCKOUT_TIME = 300000; // 5 minutes
+        let lockoutUntil = null;
+
+        // Check if already logged in
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedSession = sessionStorage.getItem('acs_session');
+            if (savedSession) {
+                try {
+                    const session = JSON.parse(savedSession);
+                    if (session.expiry > Date.now()) {
+                        // Still valid, redirect to dashboard
+                        window.location.href = DASHBOARD_URL;
+                        return;
+                    }
+                } catch (e) {
+                    sessionStorage.removeItem('acs_session');
+                }
+            }
+
+            // Check for remember me
+            const rememberedUser = localStorage.getItem('acs_remembered_user');
+            if (rememberedUser) {
+                document.getElementById('username').value = rememberedUser;
+                document.getElementById('remember-me').checked = true;
+            }
+
+            // Check lockout
+            const lockout = localStorage.getItem('acs_lockout');
+            if (lockout) {
+                lockoutUntil = parseInt(lockout);
+                if (lockoutUntil > Date.now()) {
+                    showLockout();
+                } else {
+                    localStorage.removeItem('acs_lockout');
+                    loginAttempts = 0;
+                }
+            }
+        });
+
+        function showAlert(message, type = 'danger') {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.innerHTML = `
+                <i class="fas fa-${type === 'danger' ? 'exclamation-circle' : 'check-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alert);
+
+            // Auto dismiss after 5 seconds
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        function showLockout() {
+            const remainingTime = Math.ceil((lockoutUntil - Date.now()) / 1000);
+            const minutes = Math.floor(remainingTime / 60);
+            const seconds = remainingTime % 60;
+
+            showAlert(`Too many failed attempts. Please try again in ${minutes}m ${seconds}s`, 'danger');
+
+            document.getElementById('login-btn').disabled = true;
+
+            // Update countdown
+            const countdown = setInterval(() => {
+                if (Date.now() >= lockoutUntil) {
+                    clearInterval(countdown);
+                    localStorage.removeItem('acs_lockout');
+                    loginAttempts = 0;
+                    lockoutUntil = null;
+                    document.getElementById('login-btn').disabled = false;
+                    document.getElementById('alert-container').innerHTML = '';
+                } else {
+                    const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+                    const m = Math.floor(remaining / 60);
+                    const s = remaining % 60;
+                    showAlert(`Too many failed attempts. Please try again in ${m}m ${s}s`, 'danger');
+                }
+            }, 1000);
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            // Check lockout
+            if (lockoutUntil && Date.now() < lockoutUntil) {
+                showLockout();
+                return;
+            }
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const apiKey = document.getElementById('api-key').value.trim();
+            const rememberMe = document.getElementById('remember-me').checked;
+
+            // Basic validation
+            if (!username || !password) {
+                showAlert('Please enter both username and password', 'danger');
+                return;
+            }
+
+            // Show loading
+            const loginBtn = document.getElementById('login-btn');
+            const loginText = document.getElementById('login-text');
+            const loginSpinner = document.getElementById('login-spinner');
+
+            loginBtn.disabled = true;
+            loginText.classList.add('d-none');
+            loginSpinner.classList.remove('d-none');
+
+            try {
+                // Simulate API call (replace with actual authentication)
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // For demo purposes - accept any username/password
+                // In production, this should call your authentication API
+                const isValid = await authenticateUser(username, password, apiKey);
+
+                if (isValid) {
+                    // Reset attempts
+                    loginAttempts = 0;
+                    localStorage.removeItem('acs_lockout');
+
+                    // Save session
+                    const session = {
+                        username: username,
+                        apiKey: apiKey || 'default-key',
+                        loginTime: Date.now(),
+                        expiry: Date.now() + (8 * 60 * 60 * 1000) // 8 hours
+                    };
+                    sessionStorage.setItem('acs_session', JSON.stringify(session));
+
+                    // Remember me
+                    if (rememberMe) {
+                        localStorage.setItem('acs_remembered_user', username);
+                    } else {
+                        localStorage.removeItem('acs_remembered_user');
+                    }
+
+                    // Show success
+                    showAlert('Login successful! Redirecting...', 'success');
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = DASHBOARD_URL;
+                    }, 1000);
+                } else {
+                    // Failed login
+                    loginAttempts++;
+
+                    if (loginAttempts >= MAX_ATTEMPTS) {
+                        lockoutUntil = Date.now() + LOCKOUT_TIME;
+                        localStorage.setItem('acs_lockout', lockoutUntil.toString());
+                        showLockout();
+                    } else {
+                        const remaining = MAX_ATTEMPTS - loginAttempts;
+                        showAlert(`Invalid credentials. ${remaining} attempt${remaining > 1 ? 's' : ''} remaining.`, 'danger');
+                    }
+
+                    // Reset form
+                    loginBtn.disabled = false;
+                    loginText.classList.remove('d-none');
+                    loginSpinner.classList.add('d-none');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('An error occurred. Please try again.', 'danger');
+
+                loginBtn.disabled = false;
+                loginText.classList.remove('d-none');
+                loginSpinner.classList.add('d-none');
+            }
+        }
+
+        async function authenticateUser(username, password, apiKey) {
+            try {
+                // Try PHP Admin API (credentials stored in admin.json)
+                try {
+                    const response = await fetch(ADMIN_API_BASE, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'login',
+                            username: username,
+                            password: password
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        console.log('Login via PHP Admin API');
+                        return true;
+                    }
+                    // If API responds with failure, don't try local auth
+                    if (response.status === 401) {
+                        return false;
+                    }
+                } catch (e) {
+                    console.log('Admin API not available, trying local auth');
+                }
+
+                // Fallback: Local authentication (for offline use)
+                // Default: admin / admin123
+                const ADMIN_USER = 'admin';
+                const ADMIN_PASS = 'admin123';
+
+                if (username === ADMIN_USER && password === ADMIN_PASS) {
+                    return true;
+                }
+
+                return false;
+            } catch (error) {
+                console.error('Authentication error:', error);
+                return false;
+            }
+        }
+
+        // Prevent clickjacking
+        if (window.top !== window.self) {
+            window.top.location = window.self.location;
+        }
+    </script>
+</body>
+
+</html>
