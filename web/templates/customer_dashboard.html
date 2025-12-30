@@ -369,6 +369,11 @@
             color: white;
         }
 
+        .action-card.billing .icon {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+
         .action-card.support .icon {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: white;
@@ -380,16 +385,64 @@
             color: var(--text-primary);
         }
 
-        /* Map Container */
-        .map-section {
+        /* Billing Container */
+        .billing-section {
             margin-bottom: 20px;
         }
 
-        #customer-map {
-            height: 200px;
+        .billing-card {
+            background: var(--bg-card);
             border-radius: var(--radius-lg);
+            padding: 24px;
             box-shadow: var(--shadow-soft);
+            text-align: center;
+            position: relative;
             overflow: hidden;
+        }
+
+        .billing-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: var(--gradient-primary);
+        }
+
+        .billing-amount {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 10px 0;
+        }
+
+        .billing-status {
+            display: inline-block;
+            padding: 6px 16px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .billing-status.unpaid {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
         }
 
         /* WiFi Settings Modal */
@@ -685,6 +738,11 @@
             color: #c2185b;
         }
 
+        .settings-item .icon.billing {
+            background: #e0f2f1;
+            color: #00695c;
+        }
+
         .settings-item .icon.logout {
             background: #ffebee;
             color: #d32f2f;
@@ -799,9 +857,9 @@
                     <div class="icon"><i class="fas fa-sync-alt"></i></div>
                     <div class="title">Refresh</div>
                 </div>
-                <div class="action-card map" onclick="showPage('map')">
-                    <div class="icon"><i class="fas fa-map-marker-alt"></i></div>
-                    <div class="title">Lokasi</div>
+                <div class="action-card billing" onclick="showPage('billing')">
+                    <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="title">Tagihan</div>
                 </div>
                 <div class="action-card support" onclick="showPage('help')">
                     <div class="icon"><i class="fas fa-headset"></i></div>
@@ -910,14 +968,36 @@
             </div>
         </div>
 
-        <!-- Map Page -->
-        <div class="page-container" id="page-map">
+        <!-- Billing Page -->
+        <div class="page-container" id="page-billing">
             <div class="info-section">
                 <h2 class="section-title">
-                    <i class="fas fa-map-marked-alt"></i>
-                    Lokasi Perangkat
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    Informasi Tagihan
                 </h2>
-                <div id="customer-map"></div>
+
+                <div class="billing-card">
+                    <p class="text-secondary mb-0">Total Tagihan Belum Dibayar</p>
+                    <div class="billing-amount" id="billing-total">Rp 0</div>
+                    <div class="billing-status" id="billing-status">Lunas</div>
+
+                    <button class="btn-primary-custom w-100 mb-3" id="btn-pay" style="display: none;">
+                        <i class="fas fa-wallet me-2"></i>Bayar Sekarang
+                    </button>
+
+                    <p class="small text-muted">
+                        *Pembayaran akan diverifikasi otomatis oleh sistem
+                    </p>
+                </div>
+
+                <h3 class="section-title mt-4" style="font-size: 1rem;">
+                    <i class="fas fa-history"></i> Riwayat Pembayaran
+                </h3>
+                <div class="info-card px-4" id="payment-history">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-spinner fa-spin me-2"></i>Memuat data...
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -951,12 +1031,23 @@
                     <div class="arrow"><i class="fas fa-chevron-right"></i></div>
                 </div>
 
-                <div class="settings-item" onclick="showPage('map')">
+                <div class="settings-item" onclick="showPage('billing')">
                     <div class="left">
-                        <div class="icon location"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="icon billing"><i class="fas fa-file-invoice-dollar"></i></div>
                         <div>
-                            <div class="title">Lihat Lokasi</div>
-                            <div class="subtitle">Peta lokasi perangkat</div>
+                            <div class="title">Info Tagihan</div>
+                            <div class="subtitle">Cek tagihan & riwayat</div>
+                        </div>
+                    </div>
+                    <div class="arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+
+                <div class="settings-item" onclick="showChangePasswordModal()">
+                    <div class="left">
+                        <div class="icon password"><i class="fas fa-key"></i></div>
+                        <div>
+                            <div class="title">Ubah Password Login</div>
+                            <div class="subtitle">Ganti password akun Anda</div>
                         </div>
                     </div>
                     <div class="arrow"><i class="fas fa-chevron-right"></i></div>
@@ -1023,9 +1114,9 @@
             <i class="fas fa-home"></i>
             <span>Beranda</span>
         </div>
-        <div class="nav-item" onclick="showPage('map')" id="nav-map">
-            <i class="fas fa-map-marker-alt"></i>
-            <span>Lokasi</span>
+        <div class="nav-item" onclick="showPage('billing')" id="nav-billing">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <span>Tagihan</span>
         </div>
         <div class="nav-item" onclick="showPage('settings')" id="nav-settings">
             <i class="fas fa-cog"></i>
@@ -1096,6 +1187,54 @@
         </div>
     </div>
 
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
+                    <h5 class="modal-title">
+                        <i class="fas fa-key me-2"></i>Ubah Password Login
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="password-alert"></div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-lock-open me-2"></i>Password Lama
+                        </label>
+                        <input type="password" class="form-control" id="old-password"
+                            placeholder="Masukkan password lama" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-lock me-2"></i>Password Baru
+                        </label>
+                        <input type="password" class="form-control" id="new-password" placeholder="Minimal 6 karakter"
+                            required>
+                        <div class="form-text">Gunakan kombinasi huruf, angka, dan simbol untuk keamanan maksimal.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-check-circle me-2"></i>Konfirmasi Password Baru
+                        </label>
+                        <input type="password" class="form-control" id="confirm-password"
+                            placeholder="Ketik ulang password baru" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="saveNewPassword()">
+                        <i class="fas fa-save me-2"></i>Simpan Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Leaflet JS -->
@@ -1106,6 +1245,7 @@
         const API_BASE = '/api'; // Main ACS API
         const phpApiPort = '8888';
         const CUSTOMER_API_BASE = 'http://' + window.location.hostname + ':' + phpApiPort + '/api/customer_api.php';
+        const BILLING_API = 'http://' + window.location.hostname + ':' + phpApiPort + '/api/billing_api.php';
         const LOGIN_URL = 'customer_login.html';
 
         let currentSession = null;
@@ -1113,6 +1253,7 @@
         let locationData = null;
         let map = null;
         let wifiModal = null;
+        let changePasswordModal = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -1124,6 +1265,7 @@
 
             // Initialize modal
             wifiModal = new bootstrap.Modal(document.getElementById('wifiModal'));
+            changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
 
             // Set user name
             document.getElementById('user-name').textContent = currentSession.username;
@@ -1133,6 +1275,36 @@
 
             // Note: WiFi form now uses separate buttons (saveSSIDOnly, savePasswordOnly)
         });
+
+        function showPage(pageName) {
+            console.log('Showing page:', pageName);
+
+            // Hide all pages
+            document.querySelectorAll('.page-container').forEach(page => {
+                page.style.display = 'none';
+            });
+
+            // Show selected page
+            const pageEl = document.getElementById('page-' + pageName);
+            if (pageEl) {
+                pageEl.style.display = 'block';
+            }
+
+            // Update nav active state
+            document.querySelectorAll('.nav-item').forEach(nav => {
+                nav.classList.remove('active');
+            });
+            const navEl = document.getElementById('nav-' + pageName);
+            if (navEl) {
+                navEl.classList.add('active');
+            }
+
+            // Load billing data when billing page is opened
+            if (pageName === 'billing') {
+                console.log('Loading billing data...');
+                loadBillingData();
+            }
+        }
 
         function checkSession() {
             const savedSession = sessionStorage.getItem('customer_session');
@@ -1196,8 +1368,12 @@
             document.getElementById(`nav-${pageId}`).classList.add('active');
 
             // Initialize map if needed
-            if (pageId === 'map' && !map) {
-                setTimeout(() => initMap(), 100);
+            // if (pageId === 'map' && !map) {
+            //     setTimeout(() => initMap(), 100);
+            // }
+
+            if (pageId === 'billing') {
+                loadBillingData();
             }
         }
 
@@ -1277,7 +1453,7 @@
                 // FALLBACK 2: Try API (likely will fail with 401 for customer)
                 console.log('Trying API as last resort...');
                 try {
-                    const response = await fetch(`${API_BASE}/devices`);
+                    const response = await fetch(`${API_BASE}/devices?per_page=1000`);
                     if (response.ok) {
                         const result = await response.json();
                         const devices = Array.isArray(result) ? result : (result.data || []);
@@ -1487,38 +1663,124 @@
             return `${days} hari lalu`;
         }
 
+        async function loadBillingData() {
+            if (!currentSession) return;
+
+            // Optimization: If we have the Database ID, use it directly
+            if (currentSession.customerData && currentSession.customerData.dbId) {
+                console.log('Fetching billing data by ID:', currentSession.customerData.dbId);
+                try {
+                    const detailResp = await fetch(`${BILLING_API}?action=customer&id=${currentSession.customerData.dbId}`);
+                    const detailResult = await detailResp.json();
+                    console.log('Billing API Response:', detailResult);
+                    if (detailResult.success) {
+                        console.log('Customer data:', detailResult.customer);
+                        updateBillingUI(detailResult.customer);
+                        return; // Exit early
+                    } else {
+                        console.error('Billing API returned success=false:', detailResult);
+                    }
+                } catch (e) { console.error('Error fetching billing by ID:', e); }
+            }
+
+            // Try to find customer by username or PPPoE
+            // Priority: PPPoE User (most accurate for billing) -> Username -> Name
+            let searchKey = currentSession.username;
+            if (deviceData) {
+                const pppoe = getPPPoEUsername(deviceData);
+                if (pppoe && pppoe !== '-') searchKey = pppoe;
+            }
+
+            console.log('Fetching billing data for:', searchKey);
+
+            try {
+                // 1. Search for customer to get ID
+                const searchResp = await fetch(`${BILLING_API}?action=customers&search=${encodeURIComponent(searchKey)}`);
+                const searchResult = await searchResp.json();
+
+                if (searchResult.success && searchResult.customers.length > 0) {
+                    // Find exact match if possible, or take the first one
+                    const customer = searchResult.customers[0];
+                    console.log('Customer found:', customer);
+
+                    // 2. Get full details including invoices/payments
+                    const detailResp = await fetch(`${BILLING_API}?action=customer&id=${customer.id}`);
+                    const detailResult = await detailResp.json();
+
+                    if (detailResult.success) {
+                        updateBillingUI(detailResult.customer);
+                    }
+                } else {
+                    console.log('Customer billing data not found');
+                    // Keep default "Rp 0" or show "Data tagihan tidak ditemukan"
+                }
+            } catch (error) {
+                console.error('Error loading billing data:', error);
+            }
+        }
+
+        function updateBillingUI(customer) {
+            // Calculate unpaid invoices
+            let totalUnpaid = 0;
+            if (customer.invoices) {
+                customer.invoices.forEach(inv => {
+                    if (inv.status === 'sent' || inv.status === 'overdue' || inv.status === 'partial') {
+                        totalUnpaid += (parseFloat(inv.total) - parseFloat(inv.paid_amount || 0));
+                    }
+                });
+            }
+
+            // Update Amount
+            document.querySelector('.billing-amount').textContent = formatRupiah(totalUnpaid);
+
+            // Update Status Badge
+            const statusEl = document.querySelector('.billing-status');
+            if (totalUnpaid > 0) {
+                statusEl.textContent = 'Belum Lunas';
+                statusEl.className = 'billing-status unpaid';
+            } else {
+                statusEl.textContent = 'Lunas';
+                statusEl.className = 'billing-status';
+            }
+
+            // Update History
+            const historyContainer = document.querySelector('.info-card.px-4'); // Target specific card
+            if (customer.payments && customer.payments.length > 0) {
+                let html = '';
+                customer.payments.slice(0, 5).forEach(pay => {
+                    html += `
+                        <div class="history-item">
+                            <div>
+                                <div class="fw-bold">Pembayaran #${pay.payment_no.split('-').pop()}</div>
+                                <small class="text-muted">${formatDate(pay.payment_date)}</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-success">Berhasil</div>
+                                <small class="text-muted">${formatRupiah(pay.amount)}</small>
+                            </div>
+                        </div>
+                    `;
+                });
+                historyContainer.innerHTML = html;
+            } else {
+                historyContainer.innerHTML = '<div class="text-center py-3 text-muted">Belum ada riwayat pembayaran</div>';
+            }
+        }
+
+        function formatRupiah(amount) {
+            return 'Rp ' + parseInt(amount || 0).toLocaleString('id-ID');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+
         function initMap() {
-            if (map) return;
-
-            // Default location (Indonesia center)
-            let lat = -2.5489;
-            let lng = 118.0149;
-            let zoom = 5;
-
-            // Use device location if available
-            if (locationData && locationData.latitude && locationData.longitude) {
-                lat = parseFloat(locationData.latitude);
-                lng = parseFloat(locationData.longitude);
-                zoom = 16;
-            }
-
-            map = L.map('customer-map').setView([lat, lng], zoom);
-
-            // Add tile layer
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
-
-            // Add marker if location exists
-            if (locationData && locationData.latitude && locationData.longitude) {
-                const marker = L.marker([lat, lng]).addTo(map);
-                marker.bindPopup(`
-                    <div style="text-align: center; min-width: 150px;">
-                        <strong>${locationData.name || 'Lokasi Perangkat'}</strong><br>
-                        <small>${deviceData?.serial_number || ''}</small>
-                    </div>
-                `).openPopup();
-            }
+            // Map functionality removed
+            console.log('Map feature is disabled');
         }
 
         function showWiFiModal() {
@@ -1671,10 +1933,151 @@
             }
         }
 
+        function updateBillingUI(customerData) {
+            console.log('Updating billing UI with:', customerData);
+            console.log('Invoices:', customerData.invoices);
+            console.log('Payments:', customerData.payments);
+
+            // Calculate unpaid invoices
+            let totalUnpaid = 0;
+            const unpaidInvoices = [];
+            if (customerData.invoices && customerData.invoices.length > 0) {
+                console.log('Processing invoices, count:', customerData.invoices.length);
+                customerData.invoices.forEach((inv, index) => {
+                    console.log(`Invoice ${index}:`, inv);
+                    const invoiceAmount = parseFloat(inv.amount || inv.total || 0);
+                    console.log(`  Status: ${inv.status}, Amount: ${inv.amount}, Total: ${inv.total}, Using: ${invoiceAmount}`);
+                    if (inv.status !== 'paid') {
+                        totalUnpaid += invoiceAmount;
+                        unpaidInvoices.push(inv);
+                        console.log(`  → Added to unpaid (total now: ${totalUnpaid})`);
+                    }
+                });
+            }
+
+            console.log('Final totalUnpaid:', totalUnpaid);
+            console.log('Final unpaidInvoices count:', unpaidInvoices.length);
+
+            // Update total billing
+            const totalEl = document.getElementById('billing-total');
+            const statusEl = document.getElementById('billing-status');
+            const payBtn = document.getElementById('btn-pay');
+
+            if (totalEl) {
+                totalEl.textContent = `Rp ${totalUnpaid.toLocaleString('id-ID')}`;
+            }
+
+            // Update status
+            if (statusEl) {
+                if (totalUnpaid > 0) {
+                    statusEl.textContent = `${unpaidInvoices.length} Tagihan Belum Dibayar`;
+                    statusEl.className = 'billing-status text-danger';
+                    if (payBtn) payBtn.style.display = 'block';
+                } else {
+                    statusEl.textContent = 'Lunas';
+                    statusEl.className = 'billing-status text-success';
+                    if (payBtn) payBtn.style.display = 'none';
+                }
+            }
+
+            // Update payment history
+            const historyEl = document.getElementById('payment-history');
+            if (historyEl) {
+                if (!customerData.payments || customerData.payments.length === 0) {
+                    historyEl.innerHTML = `
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-inbox me-2"></i>Belum ada riwayat pembayaran
+                        </div>
+                    `;
+                } else {
+                    let historyHTML = '';
+                    customerData.payments.slice(0, 10).forEach(payment => {
+                        const date = new Date(payment.payment_date);
+                        const dateStr = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+                        historyHTML += `
+                            <div class="history-item">
+                                <div>
+                                    <div class="fw-bold">${payment.invoice_no || 'Pembayaran'}</div>
+                                    <small class="text-muted">${dateStr}</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold text-success">Lunas</div>
+                                    <small class="text-muted">Rp ${parseFloat(payment.amount || payment.total || 0).toLocaleString('id-ID')}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    historyEl.innerHTML = historyHTML;
+                }
+            }
+        }
+
         async function refreshData() {
             showToast('Memperbarui data...', 'info');
             await loadDeviceData();
             showToast('Data berhasil diperbarui', 'success');
+        }
+
+        function showChangePasswordModal() {
+            document.getElementById('old-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            document.getElementById('password-alert').innerHTML = '';
+            changePasswordModal.show();
+        }
+
+        async function saveNewPassword() {
+            const oldPassword = document.getElementById('old-password').value.trim();
+            const newPassword = document.getElementById('new-password').value.trim();
+            const confirmPassword = document.getElementById('confirm-password').value.trim();
+            const alertDiv = document.getElementById('password-alert');
+
+            alertDiv.innerHTML = '';
+
+            // Validasi
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                alertDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Semua field harus diisi!</div>';
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alertDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Password baru minimal 6 karakter!</div>';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                alertDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Password baru dan konfirmasi tidak cocok!</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://${window.location.hostname}:${phpApiPort}/api/billing_api.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'change_password',
+                        customer_id: currentSession.customerData.dbId,
+                        old_password: oldPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alertDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>Password berhasil diubah! Silakan login kembali dengan password baru.</div>';
+                    setTimeout(() => {
+                        changePasswordModal.hide();
+                        handleLogout();
+                    }, 2000);
+                } else {
+                    alertDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>${result.error || 'Gagal mengubah password'}</div>`;
+                }
+            } catch (error) {
+                console.error('Change password error:', error);
+                alertDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Terjadi kesalahan saat mengubah password</div>';
+            }
         }
 
         function handleLogout() {

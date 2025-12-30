@@ -72,6 +72,20 @@ echo "[INFO] Starting MariaDB Service..."
 systemctl start mariadb
 systemctl enable mariadb
 
+# 2.1 Install PHP dependencies (curl module for Telegram API, etc.)
+echo "[INFO] Checking PHP modules..."
+if ! php -m | grep -qi curl; then
+    echo "[INFO] Installing php-curl module..."
+    if command -v apt-get &> /dev/null; then
+        apt-get install -y php-curl
+    elif command -v yum &> /dev/null; then
+        yum install -y php-curl
+    fi
+    echo "[SUCCESS] php-curl installed."
+else
+    echo "[INFO] php-curl is already installed."
+fi
+
 # 3. Secure Installation & Set Root Password
 echo "[INFO] Configuring Database..."
 
@@ -113,12 +127,303 @@ CREATE TABLE IF NOT EXISTS onu_locations (
     INDEX idx_coords (latitude, longitude),
     UNIQUE INDEX idx_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Customers Table
+CREATE TABLE IF NOT EXISTS customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id VARCHAR(20) UNIQUE NOT NULL COMMENT 'Format: CST001',
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) DEFAULT NULL,
+    address TEXT,
+    pppoe_username VARCHAR(50) DEFAULT NULL,
+    pppoe_password VARCHAR(100) DEFAULT NULL,
+    portal_username VARCHAR(50) DEFAULT NULL COMMENT 'Customer portal login username',
+    portal_password VARCHAR(255) DEFAULT NULL COMMENT 'Customer portal login password (hashed)',
+    package_id INT DEFAULT NULL,
+    monthly_fee DECIMAL(12,2) DEFAULT 0,
+    billing_date TINYINT DEFAULT 1 COMMENT 'Day of month for billing',
+    status ENUM('active', 'isolir', 'suspended', 'terminated') DEFAULT 'active',
+    isolir_date DATE DEFAULT NULL,
+    onu_serial VARCHAR(50) DEFAULT NULL COMMENT 'Link to ONU device',
+    registered_at DATE DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status (status),
+    INDEX idx_pppoe (pppoe_username),
+    INDEX idx_portal (portal_username),
+    INDEX idx_onu (onu_serial)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Packages Table
+CREATE TABLE IF NOT EXISTS packages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    speed VARCHAR(20) NOT NULL,
+    price DECIMAL(12,2) NOT NULL,
+    description TEXT,
+    mikrotik_profile VARCHAR(50) DEFAULT NULL,
+    mikrotik_profile_isolir VARCHAR(50) DEFAULT 'isolir',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Invoices Table
+CREATE TABLE IF NOT EXISTS invoices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    invoice_no VARCHAR(30) UNIQUE NOT NULL,
+    customer_id INT NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    due_date DATE NOT NULL,
+    subtotal DECIMAL(12,2) NOT NULL,
+    discount DECIMAL(12,2) DEFAULT 0,
+    tax DECIMAL(12,2) DEFAULT 0,
+    total DECIMAL(12,2) NOT NULL,
+    status ENUM('draft', 'sent', 'paid', 'overdue', 'cancelled') DEFAULT 'draft',
+    paid_at DATETIME DEFAULT NULL,
+    paid_amount DECIMAL(12,2) DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_customer (customer_id),
+    INDEX idx_status (status),
+    INDEX idx_due_date (due_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Payments Table
+CREATE TABLE IF NOT EXISTS payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    payment_no VARCHAR(30) UNIQUE NOT NULL,
+    invoice_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    payment_method ENUM('cash', 'transfer', 'qris', 'ewallet', 'other') DEFAULT 'cash',
+    payment_date DATE NOT NULL,
+    reference_no VARCHAR(100) DEFAULT NULL,
+    notes TEXT,
+    recorded_by VARCHAR(50) DEFAULT 'admin',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_invoice (invoice_id),
+    INDEX idx_customer (customer_id),
+    INDEX idx_date (payment_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Telegram Bot Configuration Table
+CREATE TABLE IF NOT EXISTS telegram_config (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    bot_token VARCHAR(100) NOT NULL COMMENT 'Bot Token dari BotFather',
+    bot_username VARCHAR(50) DEFAULT NULL COMMENT 'Username bot (opsional)',
+    webhook_url VARCHAR(255) DEFAULT NULL COMMENT 'URL webhook',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Telegram Admin Users Table (authorized chat IDs)
+CREATE TABLE IF NOT EXISTS telegram_admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chat_id VARCHAR(20) NOT NULL UNIQUE COMMENT 'Telegram Chat ID',
+    name VARCHAR(100) DEFAULT NULL COMMENT 'Nama admin',
+    username VARCHAR(50) DEFAULT NULL COMMENT 'Telegram username',
+    role ENUM('superadmin', 'admin', 'operator') DEFAULT 'admin',
+    is_active BOOLEAN DEFAULT TRUE,
+    last_activity TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_chat_id (chat_id),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insert Default Admin (if not exists)
+-- You can add default admin user here if needed
+
 EOF
 
 if [ $? -eq 0 ]; then
-    echo "[SUCCESS] Database tables created."
+    echo "[SUCCESS] Database tables created (onu_locations + billing tables)."
 else
     echo "[WARNING] Failed to create tables. You may need to run migration manually."
+fi
+
+# 6. Run Database Migrations (for existing installations)
+echo "[INFO] Running database migrations..."
+
+mysql -u $DB_USER -p$DB_PASS $DB_NAME <<MIGRATE
+
+-- Migration 004: Add mikrotik_profile_isolir column to packages (if not exists)
+-- This column stores the profile name used when customer is isolated
+SET @column_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_SCHEMA = DATABASE() 
+    AND TABLE_NAME = 'packages' 
+    AND COLUMN_NAME = 'mikrotik_profile_isolir'
+);
+SET @sql = IF(@column_exists = 0, 
+    'ALTER TABLE packages ADD COLUMN mikrotik_profile_isolir VARCHAR(50) DEFAULT ''isolir'' COMMENT ''MikroTik profile untuk isolir'' AFTER mikrotik_profile',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Ensure default value for existing packages
+UPDATE packages SET mikrotik_profile_isolir = 'isolir' WHERE mikrotik_profile_isolir IS NULL OR mikrotik_profile_isolir = '';
+
+-- Migration: Add portal_username and portal_password to customers if not exists
+SET @column_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_SCHEMA = DATABASE() 
+    AND TABLE_NAME = 'customers' 
+    AND COLUMN_NAME = 'portal_username'
+);
+SET @sql = IF(@column_exists = 0, 
+    'ALTER TABLE customers ADD COLUMN portal_username VARCHAR(50) DEFAULT NULL AFTER pppoe_password, ADD COLUMN portal_password VARCHAR(255) DEFAULT NULL AFTER portal_username',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Migration: Create telegram_config table if not exists
+CREATE TABLE IF NOT EXISTS telegram_config (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    bot_token VARCHAR(100) NOT NULL COMMENT 'Bot Token dari BotFather',
+    bot_username VARCHAR(50) DEFAULT NULL COMMENT 'Username bot (opsional)',
+    webhook_url VARCHAR(255) DEFAULT NULL COMMENT 'URL webhook',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migration: Create telegram_admins table if not exists
+CREATE TABLE IF NOT EXISTS telegram_admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chat_id VARCHAR(20) NOT NULL UNIQUE COMMENT 'Telegram Chat ID',
+    name VARCHAR(100) DEFAULT NULL COMMENT 'Nama admin',
+    username VARCHAR(50) DEFAULT NULL COMMENT 'Telegram username',
+    role ENUM('superadmin', 'admin', 'operator') DEFAULT 'admin',
+    is_active BOOLEAN DEFAULT TRUE,
+    last_activity TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_chat_id (chat_id),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+MIGRATE
+
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Database migrations completed."
+else
+    echo "[WARNING] Some migrations may have failed. Check manually if needed."
+fi
+
+# 7. Run Hotspot Voucher System Migration
+echo "[INFO] Running hotspot voucher system migration..."
+
+mysql -u $DB_USER -p$DB_PASS $DB_NAME <<HOTSPOT
+
+-- Hotspot Vouchers Table
+CREATE TABLE IF NOT EXISTS hotspot_vouchers (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    batch_id VARCHAR(50) NOT NULL COMMENT 'Format: vc-acslite-YYYYMMDD-HHMMSS',
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    profile VARCHAR(50) NOT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    duration VARCHAR(20) NOT NULL COMMENT 'Format: 3h, 1d, 7d',
+    limit_uptime INT NULL COMMENT 'Seconds',
+    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sold_date DATETIME NULL,
+    first_login DATETIME NULL,
+    last_login DATETIME NULL,
+    expired_date DATETIME NULL,
+    status ENUM('unused', 'sold', 'active', 'expired', 'disabled') DEFAULT 'unused',
+    mac_address VARCHAR(17) NULL,
+    comment TEXT NULL,
+    scheduler_name VARCHAR(100) NULL,
+    mikrotik_comment TEXT NULL,
+    INDEX idx_batch (batch_id),
+    INDEX idx_profile (profile),
+    INDEX idx_status (status),
+    INDEX idx_created (created_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Voucher Batches Table
+CREATE TABLE IF NOT EXISTS voucher_batches (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    batch_id VARCHAR(50) UNIQUE NOT NULL,
+    profile VARCHAR(50) NOT NULL,
+    quantity INT NOT NULL DEFAULT 0,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    duration VARCHAR(20) NOT NULL,
+    prefix VARCHAR(20) NULL,
+    code_length INT NOT NULL DEFAULT 6,
+    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) NULL,
+    total_unused INT DEFAULT 0,
+    total_sold INT DEFAULT 0,
+    total_active INT DEFAULT 0,
+    total_expired INT DEFAULT 0,
+    total_disabled INT DEFAULT 0,
+    revenue DECIMAL(10,2) DEFAULT 0,
+    notes TEXT NULL,
+    INDEX idx_profile (profile),
+    INDEX idx_created (created_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Hotspot Sales Table
+CREATE TABLE IF NOT EXISTS hotspot_sales (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    voucher_id INT NOT NULL,
+    batch_id VARCHAR(50) NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    price DECIMAL(10,2) NOT NULL,
+    actual_price DECIMAL(10,2) NULL,
+    seller VARCHAR(100) NULL,
+    customer_name VARCHAR(100) NULL,
+    customer_phone VARCHAR(20) NULL,
+    payment_method ENUM('cash', 'transfer', 'qris', 'ewallet', 'other') DEFAULT 'cash',
+    notes TEXT NULL,
+    INDEX idx_batch (batch_id),
+    INDEX idx_sale_date (sale_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Hotspot Profiles Table
+CREATE TABLE IF NOT EXISTS hotspot_profiles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    duration VARCHAR(20) NOT NULL,
+    duration_seconds INT NOT NULL COMMENT 'Duration in seconds',
+    rate_limit VARCHAR(50) NULL,
+    shared_users INT DEFAULT 1,
+    session_timeout INT NULL,
+    idle_timeout INT NULL,
+    validity_type ENUM('uptime', 'time', 'both') DEFAULT 'uptime',
+    on_login_script TEXT NULL,
+    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_date DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+    is_active TINYINT(1) DEFAULT 1,
+    INDEX idx_name (name),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insert sample profiles if table is empty
+INSERT IGNORE INTO hotspot_profiles (name, price, duration, duration_seconds, rate_limit, validity_type) VALUES
+('3JAM', 3000, '3h', 10800, '2M/2M', 'uptime'),
+('1HARI', 5000, '1d', 86400, '2M/2M', 'uptime'),
+('3HARI', 10000, '3d', 259200, '2M/2M', 'uptime'),
+('1MINGGU', 20000, '7d', 604800, '3M/3M', 'uptime');
+
+HOTSPOT
+
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Hotspot voucher tables created."
+else
+    echo "[WARNING] Hotspot tables may have failed. Check manually if needed."
 fi
 
 
@@ -153,18 +458,25 @@ echo "[INFO] Creating installation directory at $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR/web/templates"
 mkdir -p "$INSTALL_DIR/web/api"
 mkdir -p "$INSTALL_DIR/web/data"
+mkdir -p "$INSTALL_DIR/web/js"
 
 # 4. Copy Files
 echo "[INFO] Copying application files..."
 cp "$BINARY_SOURCE" "$INSTALL_DIR/acs"
 chmod +x "$INSTALL_DIR/acs"
 
-# Copy web/templates
+# Copy web/templates TO web/ root (so accessible at /web/xxx.html)
 if [ -d "web/templates" ]; then
-    cp -r web/templates/* "$INSTALL_DIR/web/templates/"
-    echo "[INFO] Copied web/templates/"
+    cp -r web/templates/* "$INSTALL_DIR/web/"
+    echo "[INFO] Copied web/templates/* to web/"
 else
     echo "[WARNING] web/templates directory not found! UI might not work."
+fi
+
+# Copy web/js (shared JavaScript)
+if [ -d "web/js" ]; then
+    cp -r web/js/* "$INSTALL_DIR/web/js/"
+    echo "[INFO] Copied web/js/"
 fi
 
 # Copy web/api (PHP API files)
@@ -191,6 +503,7 @@ cat <<EOF > "$INSTALL_DIR/.env"
 ACS_PORT=7547
 DB_DSN=$DB_DSN
 API_KEY=secret
+WEB_DIR=$INSTALL_DIR/web
 EOF
 chmod 600 "$INSTALL_DIR/.env"
 
@@ -250,13 +563,8 @@ else
     echo "[INFO] PHP is already installed."
 fi
 
-# 3. Ensure customers.json exists
-echo "[INFO] Checking customers.json..."
-if [ ! -f "$INSTALL_DIR/web/data/customers.json" ]; then
-    echo '{"customers":{}}' > "$INSTALL_DIR/web/data/customers.json"
-    chmod 666 "$INSTALL_DIR/web/data/customers.json"
-    echo "[INFO] Created customers.json"
-fi
+# 3. Customer data is now stored in MySQL (onu_locations table)
+# Note: customers.json is no longer needed as fallback
 
 # 4. Ensure admin.json exists with default credentials
 echo "[INFO] Checking admin.json..."
@@ -274,6 +582,7 @@ ADMINJSON
 else
     echo "[INFO] admin.json already exists, keeping current credentials"
 fi
+
 
 # 5. Create PHP API systemd service
 echo "[INFO] Creating PHP API service..."
@@ -313,8 +622,119 @@ else
 fi
 
 # ---------------------------------------------------------
+# PART 4: REAL-TIME MONITORING CONFIGURATION
+# ---------------------------------------------------------
+echo ""
+echo ">>> STEP 4: Configuring Real-Time Monitoring..."
+
+# Wait for ACS service to be fully ready
+sleep 3
+
+# Configure all connected devices to send data every 5 minutes
+configure_realtime() {
+    local INTERVAL=300  # 5 minutes in seconds
+    local ACS_API="http://localhost:7547/api"
+    local API_KEY="secret"
+    
+    echo "[INFO] Setting Periodic Inform Interval to $((INTERVAL/60)) minutes for all devices..."
+    
+    # Get all device serial numbers
+    DEVICES=$(curl -s -H "X-API-Key: $API_KEY" "$ACS_API/devices" 2>/dev/null | grep -oP '"serial_number"\s*:\s*"\K[^"]+')
+    
+    if [ -z "$DEVICES" ]; then
+        echo "[INFO] No devices connected yet. Real-time config will apply when devices connect."
+    else
+        for SN in $DEVICES; do
+            echo "[INFO] Configuring $SN..."
+            curl -s -X POST \
+                -H "X-API-Key: $API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "{\"name\":\"SetParameterValues\",\"payload\":{\"parameters\":{\"InternetGatewayDevice.ManagementServer.PeriodicInformInterval\":$INTERVAL}}}" \
+                "$ACS_API/tasks?sn=$SN" > /dev/null 2>&1
+        done
+        echo "[SUCCESS] Real-time monitoring configured for $(echo "$DEVICES" | wc -w) device(s)."
+    fi
+}
+
+# Run real-time configuration
+configure_realtime
+
+# ---------------------------------------------------------
+# PART 5: AUTO-REFRESH CRON JOB
+# ---------------------------------------------------------
+echo ""
+echo ">>> STEP 5: Setting up Auto-Refresh Cron Job..."
+
+# Copy refresh script
+if [ -f "acs-refresh.sh" ]; then
+    cp acs-refresh.sh "$INSTALL_DIR/acs-refresh.sh"
+    chmod +x "$INSTALL_DIR/acs-refresh.sh"
+    echo "[INFO] Copied acs-refresh.sh to $INSTALL_DIR"
+else
+    # Create refresh script inline
+    cat <<'REFRESHSCRIPT' > "$INSTALL_DIR/acs-refresh.sh"
+#!/bin/bash
+ACS_API="http://localhost:7547/api"
+API_KEY="secret"
+DEVICES=$(curl -s -H "X-API-Key: $API_KEY" "$ACS_API/devices" 2>/dev/null | grep -oP '"serial_number"\s*:\s*"\K[^"]+')
+for SN in $DEVICES; do
+    curl -s -X POST -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+        -d '{"name":"GetParameterValues","payload":{"parameters":["InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID","InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress","InternetGatewayDevice.DeviceInfo.X_ALU_RxPower"]}}' \
+        "$ACS_API/tasks?sn=$SN" > /dev/null 2>&1
+done
+REFRESHSCRIPT
+    chmod +x "$INSTALL_DIR/acs-refresh.sh"
+    echo "[INFO] Created acs-refresh.sh"
+fi
+
+# Add cron job (every 5 minutes)
+CRON_JOB="*/5 * * * * $INSTALL_DIR/acs-refresh.sh"
+(crontab -l 2>/dev/null | grep -v "acs-refresh.sh"; echo "$CRON_JOB") | crontab -
+echo "[SUCCESS] Cron job added: Auto-refresh every 5 minutes"
+
+# ---------------------------------------------------------
+# PART 6: SETUP CRON JOBS FOR AUTOMATION
+# ---------------------------------------------------------
+echo ""
+echo ">>> STEP 6: Setting up Automated Cron Jobs..."
+
+# Create log directory if not exists
+mkdir -p /var/log
+
+# Setup crontab for auto-isolir and auto-invoice
+echo "[INFO] Configuring cron jobs..."
+
+# Check if cron jobs already exist to prevent duplicates
+CRON_ISOLIR="1 0 * * * /usr/bin/php $INSTALL_DIR/web/api/auto_isolir_overdue.php >> /var/log/auto_isolir.log 2>&1"
+CRON_INVOICE="1 0 1 * * /usr/bin/php $INSTALL_DIR/web/api/auto_generate_invoice.php >> /var/log/auto_invoice.log 2>&1"
+
+# Get existing crontab
+crontab -l > /tmp/current_crontab 2>/dev/null || true
+
+# Check and add auto-isolir cron if not exists
+if ! grep -q "auto_isolir_overdue.php" /tmp/current_crontab 2>/dev/null; then
+    echo "$CRON_ISOLIR" >> /tmp/current_crontab
+    echo "[INFO] Added auto-isolir cron job (daily at 00:01)"
+fi
+
+# Check and add auto-invoice cron if not exists
+if ! grep -q "auto_generate_invoice.php" /tmp/current_crontab 2>/dev/null; then
+    echo "$CRON_INVOICE" >> /tmp/current_crontab
+    echo "[INFO] Added auto-invoice cron job (monthly on 1st at 00:01)"
+fi
+
+# Install the crontab
+crontab /tmp/current_crontab
+rm /tmp/current_crontab
+
+echo "[SUCCESS] Cron jobs configured:"
+echo "  - Auto-isolir overdue: Daily at 00:01"
+echo "  - Auto-generate invoice: Monthly (1st) at 00:01"
+
+# ---------------------------------------------------------
 # FINAL STATUS
 # ---------------------------------------------------------
+
 echo ""
 echo "=========================================="
 if systemctl is-active --quiet $SERVICE_NAME; then
@@ -323,9 +743,11 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo "------------------------------------------"
     echo ""
     echo "📍 Main Application (Go Server - Port 7547):"
-    echo "   Admin Panel: http://$SERVER_IP:7547/web/templates/index.html"
-    echo "   Admin Login: http://$SERVER_IP:7547/web/templates/login.html"
-    echo "   Map View:    http://$SERVER_IP:7547/web/templates/map.html"
+    echo "   Admin Panel:     http://$SERVER_IP:7547/web/templates/index.html"
+    echo "   Admin Login:     http://$SERVER_IP:7547/web/templates/login.html"
+    echo "   Map View:        http://$SERVER_IP:7547/web/templates/map.html"
+    echo "   Database Admin:  http://$SERVER_IP:7547/web/templates/db_admin.html"
+    echo "   Data Viewer:     http://$SERVER_IP:7547/web/templates/check_database.html"
     echo ""
     echo "📍 Customer Portal (PHP API - Port 8888):"
     echo "   Customer Login: http://$SERVER_IP:7547/web/templates/customer_login.html"
@@ -338,11 +760,14 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo "📍 Configuration:"
     echo "   Config File: $INSTALL_DIR/.env"
     echo "   Database: $DB_NAME (user: $DB_USER)"
+    echo "   Auto-Refresh: Every 15 seconds (built-in)"
+    echo "   ONU Inform Interval: 5 minutes (configured)"
     echo ""
     echo "📍 Service Commands:"
     echo "   ACS Status:     systemctl status $SERVICE_NAME"
     echo "   PHP API Status: systemctl status acs-php-api"
     echo "------------------------------------------"
+
     
     # Send success notification to Telegram via PHP API
     send_telegram_via_php "✅ <b>Go-ACS Installation Complete!</b>

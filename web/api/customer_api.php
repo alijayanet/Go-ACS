@@ -282,27 +282,38 @@ if ($method === 'POST') {
         $username = $data['username'];
         $password = $data['password'];
 
-        // 1. Try Database First
+        // 1. Try Database (Customers Table from Billing)
         if ($db) {
             try {
-                $stmt = $db->prepare("SELECT serial_number, name, username, password, latitude, longitude FROM onu_locations WHERE username = ?");
-                $stmt->execute([$username]);
-                $location = $stmt->fetch();
+                // Find user by portal_username (primary) or pppoe_username (fallback)
+                $stmt = $db->prepare("SELECT * FROM customers WHERE portal_username = ? OR pppoe_username = ?");
+                $stmt->execute([$username, $username]);
+                $customer = $stmt->fetch();
 
-                if ($location && verifyPassword($password, $location['password'])) {
-                    // Fetch complete device data from Go ACS
-                    $deviceInfo = getGenieDevice($location['serial_number']);
+                if ($customer && (verifyPassword($password, $customer['portal_password']))) {
+                    // Fetch device data using Serial Number or PPPoE
+                    $serial = $customer['onu_serial'];
+                    if (!$serial && $customer['pppoe_username']) {
+                        // Optional: Try to find serial via PPPoE from Go ACS (not implemented here)
+                    }
+
+                    $deviceInfo = getGenieDevice($serial);
                     
                     jsonResponse([
                         'success' => true,
-                        'source' => 'database',
-                        'serial_number' => $location['serial_number'],
+                        'source' => 'billing_db',
+                        'customer_id' => $customer['customer_id'],
+                        'username' => $customer['portal_username'],
+                        'name' => $customer['name'],
+                        'serialNumber' => $serial, // For compatibility
                         'device' => $deviceInfo,
-                        'location' => [
-                            'name' => $location['name'],
-                            'username' => $location['username'],
-                            'latitude' => (float)$location['latitude'],
-                            'longitude' => (float)$location['longitude']
+                        'customerData' => [ // Pass full customer data for dashboard
+                            'id' => $customer['id'],
+                            'name' => $customer['name'],
+                            'phone' => $customer['phone'],
+                            'address' => $customer['address'],
+                            'package_id' => $customer['package_id'],
+                            'pppoe_username' => $customer['pppoe_username']
                         ]
                     ]);
                 }
@@ -343,12 +354,15 @@ if ($method === 'POST') {
 
     // ---- SAVE ONU LOCATION ----
     if ($isSaveLocationRequest) {
-        if (empty($data['username'])) {
+        $isAdminTag = !empty($data['admin_tag']);
+        
+        // Username only required for customer tagging, not for admin tagging
+        if (!$isAdminTag && empty($data['username'])) {
             jsonResponse(['success' => false, 'message' => 'Username is required'], 400);
         }
         
         $serialNumber = $data['serial_number'];
-        $username = $data['username'];
+        $username = $data['username'] ?? 'admin_tagged'; // Default username for admin tags
         $password = $data['password'] ?? null;
         $latitude = (float)$data['latitude'];
         $longitude = (float)$data['longitude'];
@@ -366,21 +380,34 @@ if ($method === 'POST') {
                 $existing = $stmt->fetch();
 
                 if ($existing) {
-                    // Update
+                    // Update - only update password if provided
                     if ($hashedPassword) {
-                        $stmt = $db->prepare("UPDATE onu_locations SET name = ?, username = ?, password = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE serial_number = ?");
-                        $stmt->execute([$username, $username, $hashedPassword, $latitude, $longitude, $serialNumber]);
+                        $stmt = $db->prepare("UPDATE onu_locations SET username = ?, password = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE serial_number = ?");
+                        $stmt->execute([$username, $hashedPassword, $latitude, $longitude, $serialNumber]);
                     } else {
-                        $stmt = $db->prepare("UPDATE onu_locations SET name = ?, username = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE serial_number = ?");
-                        $stmt->execute([$username, $username, $latitude, $longitude, $serialNumber]);
+                        // For admin tag: only update location, keep existing username/password
+                        if ($isAdminTag) {
+                            $stmt = $db->prepare("UPDATE onu_locations SET latitude = ?, longitude = ?, updated_at = NOW() WHERE serial_number = ?");
+                            $stmt->execute([$latitude, $longitude, $serialNumber]);
+                        } else {
+                            $stmt = $db->prepare("UPDATE onu_locations SET username = ?, latitude = ?, longitude = ?, updated_at = NOW() WHERE serial_number = ?");
+                            $stmt->execute([$username, $latitude, $longitude, $serialNumber]);
+                        }
                     }
                 } else {
-                    // Insert
-                    if (!$hashedPassword) {
-                         jsonResponse(['success' => false, 'message' => 'Password is required for new user'], 400);
+                    // Insert - for admin tag, skip if no password
+                    if ($isAdminTag) {
+                        // Admin tag without password: just save location only
+                        $stmt = $db->prepare("INSERT INTO onu_locations (serial_number, name, username, latitude, longitude) VALUES (?, ?, ?, ?, ?)");
+                        $stmt->execute([$serialNumber, $username, $username, $latitude, $longitude]);
+                    } else {
+                        // Customer tag: password required
+                        if (!$hashedPassword) {
+                             jsonResponse(['success' => false, 'message' => 'Password is required for new user'], 400);
+                        }
+                        $stmt = $db->prepare("INSERT INTO onu_locations (serial_number, name, username, password, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$serialNumber, $username, $username, $hashedPassword, $latitude, $longitude]);
                     }
-                    $stmt = $db->prepare("INSERT INTO onu_locations (serial_number, name, username, password, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([$serialNumber, $username, $username, $hashedPassword, $latitude, $longitude]);
                 }
                 $successDB = true;
             } catch (PDOException $e) {
@@ -389,14 +416,14 @@ if ($method === 'POST') {
             }
         }
 
-        // 2. Always Save to JSON (Backup/Primary if DB fails)
+        // 2. JSON Storage DISABLED - Using MySQL Database Only
+        // Note: JSON fallback removed. All data stored in MySQL onu_locations table.
+        // If you need JSON backup, uncomment the section below.
+        /*
         try {
             $jsonData = getJsonData();
             $customers = $jsonData['customers'] ?? [];
-            
             $usernameLower = strtolower($username);
-            
-            // Remove old entry if serial moved
             foreach ($customers as $key => $val) {
                 if (($val['serial_number'] ?? '') === $serialNumber) {
                     if ($key !== $usernameLower) {
@@ -404,8 +431,6 @@ if ($method === 'POST') {
                     }
                 }
             }
-
-            // Update/Create data
             $customerData = [
                 'serial_number' => $serialNumber,
                 'username' => $username,
@@ -413,20 +438,18 @@ if ($method === 'POST') {
                 'longitude' => $longitude,
                 'updated_at' => date('c')
             ];
-            
             if ($hashedPassword) {
                 $customerData['password'] = $hashedPassword;
             } else if (isset($customers[$usernameLower]['password'])) {
                  $customerData['password'] = $customers[$usernameLower]['password'];
             }
-
             $customers[$usernameLower] = $customerData;
             $jsonData['customers'] = $customers;
             saveJsonData($jsonData);
-            
         } catch (Exception $e) {
-            // error_log("JSON Save Error: " . $e->getMessage());
+            // JSON save error
         }
+        */
 
         if ($successDB) {
             jsonResponse(['success' => true, 'message' => 'Location and login data saved to Database']);

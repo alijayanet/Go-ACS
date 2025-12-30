@@ -4,272 +4,373 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONU Mapping - ACSLite</title>
+    <title>Network Map - ACSLite</title>
 
     <!-- Security Headers -->
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.google.com http://*.google.com; connect-src 'self' http://*:8888 https://*.openstreetmap.org https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com http://*.google.com;">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.google.com http://*.google.com; connect-src 'self' http://*:*:8888 https://*.openstreetmap.org https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com http://*.google.com;">
 
-    <!-- Bootstrap 5 CSS -->
+    <!-- Bootstrap 5 & Font Awesome -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
+    <link href="gembok_theme.css" rel="stylesheet">
+
     <style>
-        body {
-            background-color: #f0f2f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        :root {
+            --sidebar-width: 260px;
         }
 
-        .navbar {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, .08);
-            background: linear-gradient(to right, #1a237e, #283593) !important;
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            z-index: 1000;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-header {
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .page-content {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         #map {
-            height: calc(100vh - 120px);
-            border-radius: 10px;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            flex: 1;
+            min-height: 500px;
+            width: 100%;
+            border-radius: 15px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-card);
+            z-index: 1;
         }
 
-        .map-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        .stats-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            height: 100%;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
         }
 
         .legend {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            margin-bottom: 15px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 8px;
+            font-size: 0.9rem;
         }
 
         .legend-icon {
-            width: 20px;
-            height: 20px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            margin-right: 10px;
+            margin-right: 12px;
+            box-shadow: 0 0 10px currentColor;
         }
 
         .status-online {
-            background-color: #4caf50;
+            background-color: var(--neon-green);
+            color: var(--neon-green);
         }
 
         .status-offline {
-            background-color: #f44336;
+            background-color: var(--neon-pink);
+            color: var(--neon-pink);
         }
 
         .status-warning {
-            background-color: #ff9800;
+            background-color: var(--neon-orange);
+            color: var(--neon-orange);
         }
 
-        .leaflet-popup-content {
-            min-width: 300px;
+        /* Leaflet Dark Theme Overrides */
+        .leaflet-popup-content-wrapper,
+        .leaflet-popup-tip {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .leaflet-container a.leaflet-popup-close-button {
+            color: var(--text-secondary) !important;
         }
 
         .popup-header {
-            background: linear-gradient(135deg, #1a237e, #283593);
-            color: white;
-            padding: 12px;
-            margin: -15px -15px 10px -15px;
-            border-radius: 8px 8px 0 0;
-        }
-
-        .popup-body {
-            padding: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 15px;
+            margin: -14px -14px 10px -14px;
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 12px 12px 0 0;
         }
 
         .info-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .info-row:last-child {
-            border-bottom: none;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.85rem;
         }
 
         .info-label {
-            font-weight: 600;
-            color: #666;
+            color: var(--text-secondary);
         }
 
         .info-value {
-            color: #333;
+            color: var(--text-primary);
+            font-weight: 500;
         }
 
-        .badge-online {
-            background-color: #4caf50;
-        }
-
-        .badge-offline {
-            background-color: #f44336;
-        }
-
-        .btn-map-action {
-            width: 100%;
-            margin-top: 5px;
-        }
-
-        .stats-card {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 15px;
-        }
-
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            margin: 0;
-        }
-
-        .stat-label {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        /* Layer Control Styling */
         .leaflet-control-layers {
-            border-radius: 8px !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-            border: none !important;
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 10px !important;
         }
 
-        .leaflet-control-layers-expanded {
-            padding: 10px !important;
-            background: white !important;
+        .leaflet-control-zoom a {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border: 1px solid var(--border-color) !important;
         }
 
-        .leaflet-control-layers-base label {
-            display: flex;
-            align-items: center;
-            padding: 8px 12px;
-            margin: 4px 0;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
 
-        .leaflet-control-layers-base label:hover {
-            background-color: #f0f2f5;
-        }
+            .sidebar.show {
+                transform: translateX(0);
+            }
 
-        .leaflet-control-layers-base input[type="radio"] {
-            margin-right: 8px;
+            .main-content {
+                margin-left: 0;
+            }
         }
     </style>
 </head>
 
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark mb-3 py-3">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="index.html">
-                <i class="fas fa-network-wired me-2"></i>ACSLite Manager
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand text-decoration-none">
+                <div class="sidebar-brand-icon d-inline-flex p-2 rounded shadow-sm text-white me-2">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="sidebar-brand-text d-inline-block align-middle fw-bold">
+                    ACS-Lite<small class="d-block fw-normal opacity-75" style="font-size: 0.7rem;">ISP Billing
+                        System</small>
+                </div>
             </a>
-            <div class="d-flex align-items-center">
-                <a href="index.html" class="btn btn-outline-light btn-sm me-2">
-                    <i class="fas fa-list me-1"></i> Device List
+        </div>
+        <nav class="sidebar-menu p-3">
+            <div class="menu-label mb-2">Menu Utama</div>
+            <a href="dashboard.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-home"></i><span>Dashboard</span>
+            </a>
+
+            <div class="menu-label mb-2 mt-3">ISP Billing</div>
+            <div class="menu-item-parent d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1"
+                onclick="toggleSubmenu(this)">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Billing</span>
+                <i class="fas fa-chevron-right menu-arrow ms-auto" style="font-size: 0.8rem;"></i>
+            </div>
+            <div class="menu-submenu">
+                <a href="packages.html" class="submenu-item">
+                    <i class="fas fa-cube"></i><span>Paket</span>
                 </a>
-                <span class="text-white me-3">
-                    <small class="opacity-75">Logged in as:</small>
-                    <strong id="username-display" class="ms-1">-</strong>
+                <a href="customers.html" class="submenu-item">
+                    <i class="fas fa-users"></i><span>Pelanggan</span>
+                </a>
+                <a href="invoices.html" class="submenu-item">
+                    <i class="fas fa-file-invoice"></i><span>Invoice</span>
+                </a>
+                <a href="payments.html" class="submenu-item">
+                    <i class="fas fa-money-bill-wave"></i><span>Pembayaran</span>
+                </a>
+            </div>
+
+            <div class="menu-label mb-2 mt-3">Manajemen Jaringan</div>
+            <a href="acs.html" class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-microchip"></i><span>ACS / TR-069</span>
+            </a>
+            <a href="mikrotik.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-server"></i><span>MikroTik PPPoE</span>
+            </a>
+            <a href="map.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1 active">
+                <i class="fas fa-map-marker-alt"></i><span>Peta Jaringan</span>
+            </a>
+
+            <div class="menu-label mb-2 mt-3">Data & Laporan</div>
+            <a href="reports.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-chart-bar"></i><span>Laporan</span>
+            </a>
+
+            <div class="menu-label mb-2 mt-3">Sistem</div>
+            <a href="settings.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-cog"></i><span>Pengaturan</span>
+            </a>
+            <a href="db_admin.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-database"></i><span>Database Admin</span>
+            </a>
+            <a href="javascript:void(0)" onclick="handleLogout()"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-sign-out-alt"></i><span>Logout</span>
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="d-flex align-items-center gap-3">
+                <button class="menu-toggle btn btn-link text-white p-0 border-0" onclick="toggleSidebar()">
+                    <i class="fas fa-bars fa-lg"></i>
+                </button>
+                <h5 class="mb-0 fw-bold text-white">Network Map</h5>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-secondary small">
+                    Logged in as: <strong id="username-display" class="text-white">-</strong>
                 </span>
-                <button class="btn btn-outline-light btn-sm" onclick="handleLogout()">
-                    <i class="fas fa-sign-out-alt me-1"></i> Logout
+                <button class="btn btn-outline-danger btn-sm" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
-        </div>
-    </nav>
+        </header>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3">
-                <!-- Stats -->
-                <div class="stats-card">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="stat-number text-success" id="mapped-count">0</p>
-                            <p class="stat-label">Mapped ONUs</p>
+        <div class="page-content">
+            <!-- Stats Cards - Top Row -->
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="stats-card">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="stat-label mb-0">Mapped ONUs</p>
+                            <i class="fas fa-map-marker-alt text-success opacity-50"></i>
                         </div>
-                        <i class="fas fa-map-marker-alt fa-3x text-success opacity-25"></i>
+                        <p class="stat-number text-success" id="mapped-count">0</p>
                     </div>
                 </div>
-
-                <div class="stats-card">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="stat-number text-warning" id="unmapped-count">0</p>
-                            <p class="stat-label">Unmapped ONUs</p>
+                <div class="col-6 col-md-3">
+                    <div class="stats-card">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <p class="stat-label mb-0">Unmapped ONUs</p>
+                            <i class="fas fa-map-pin text-warning opacity-50"></i>
                         </div>
-                        <i class="fas fa-map-pin fa-3x text-warning opacity-25"></i>
+                        <p class="stat-number text-warning" id="unmapped-count">0</p>
                     </div>
                 </div>
-
-                <!-- Legend -->
-                <div class="legend">
-                    <h6 class="fw-bold mb-3"><i class="fas fa-info-circle me-2"></i>Legend</h6>
-                    <div class="legend-item">
-                        <div class="legend-icon status-online"></div>
-                        <span>Online ONU</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-icon status-offline"></div>
-                        <span>Offline ONU</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-icon status-warning"></div>
-                        <span>Warning (Poor Signal)</span>
+                <div class="col-12 col-md-6">
+                    <!-- Legend - Horizontal -->
+                    <div class="stats-card h-100">
+                        <div class="d-flex align-items-center gap-4 h-100 flex-wrap">
+                            <span class="fw-bold text-white small opacity-75 me-2">LEGEND:</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="legend-icon status-online"></div>
+                                <span class="small text-white">Online</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="legend-icon status-offline"></div>
+                                <span class="small text-white">Offline</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="legend-icon status-warning"></div>
+                                <span class="small text-white">Warning</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Actions -->
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title fw-bold mb-3">
-                            <i class="fas fa-tools me-2"></i>Actions
-                        </h6>
-                        <button class="btn btn-primary w-100 mb-2" onclick="refreshMap()">
+            <!-- Map - Full Width -->
+            <div class="row g-3 mb-3">
+                <div class="col-12">
+                    <div id="map" style="min-height: 65vh; border-radius: 12px; overflow: hidden;"></div>
+                </div>
+            </div>
+
+            <!-- Action Buttons - Bottom Row -->
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <button class="btn btn-primary px-4" onclick="refreshMap()">
                             <i class="fas fa-sync-alt me-2"></i>Refresh Map
                         </button>
-                        <button class="btn btn-success w-100 mb-2" onclick="centerMap()">
+                        <button class="btn btn-success px-4" onclick="centerMap()">
                             <i class="fas fa-crosshairs me-2"></i>Center Map
                         </button>
-                        <button class="btn btn-info w-100" onclick="showUnmappedDevices()">
+                        <button class="btn btn-info px-4" onclick="showUnmappedDevices()">
                             <i class="fas fa-list me-2"></i>Unmapped Devices
                         </button>
                     </div>
                 </div>
             </div>
-
-            <!-- Map -->
-            <div class="col-md-9">
-                <div class="position-relative">
-                    <div id="map"></div>
-                </div>
-            </div>
         </div>
-    </div>
+    </main>
 
     <!-- Add Location Modal -->
     <div class="modal fade" id="addLocationModal" tabindex="-1">
@@ -371,6 +472,18 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('show');
+            document.getElementById('sidebar-overlay').classList.toggle('show');
+        }
+
+        function toggleSubmenu(element) {
+            const submenu = element.nextElementSibling;
+            const arrow = element.querySelector('.menu-arrow');
+            submenu.classList.toggle('show');
+            arrow.style.transform = submenu.classList.contains('show') ? 'rotate(90deg)' : 'rotate(0deg)';
+        }
+
         // Configuration
         const API_BASE = '/api';
 
@@ -408,7 +521,30 @@
 
             // Load data
             loadDevices();
+
+            // ========================================
+            // REAL-TIME MONITORING - Auto refresh every 15 seconds
+            // ========================================
+            let autoRefreshInterval = setInterval(() => {
+                console.log('🔄 Auto-refresh map: Loading latest data...');
+                loadDevices();
+            }, 15000); // 15 seconds
+
+            // Stop auto-refresh when page is hidden (save resources)
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    clearInterval(autoRefreshInterval);
+                    console.log('⏸️ Auto-refresh paused (tab hidden)');
+                } else {
+                    loadDevices(); // Refresh immediately when tab becomes visible
+                    autoRefreshInterval = setInterval(() => {
+                        loadDevices();
+                    }, 15000);
+                    console.log('▶️ Auto-refresh resumed');
+                }
+            });
         });
+
 
         function checkSession() {
             const savedSession = sessionStorage.getItem('acs_session');
@@ -476,7 +612,7 @@
 
         async function loadDevices() {
             try {
-                const response = await fetch(`${API_BASE}/devices`, {
+                const response = await fetch(`${API_BASE}/devices?per_page=1000`, {
                     headers: getHeaders()
                 });
 
@@ -580,12 +716,12 @@
 
             return `
                 <div class="popup-header">
-                    <h6 class="mb-0"><i class="fas fa-router me-2"></i>${device.serial_number}</h6>
+                    <h6 class="mb-0" style="font-size: 0.85rem;"><i class="fas fa-router me-2"></i>${device.serial_number}</h6>
                 </div>
                 <div class="popup-body">
                     <div class="info-row">
                         <span class="info-label">Location:</span>
-                        <span class="info-value">${location.name || 'Unnamed Location'}</span>
+                        <span class="info-value">${location.name || 'Unnamed'}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Status:</span>
@@ -593,7 +729,7 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Manufacturer:</span>
-                        <span class="info-value">${device.manufacturer || 'N/A'}</span>
+                        <span class="info-value">${device.manufacturer || '-'}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">PPPoE User:</span>
@@ -601,79 +737,84 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Model:</span>
-                        <span class="info-value">${device.product_class || 'N/A'}</span>
+                        <span class="info-value">${device.product_class || '-'}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">IP Address:</span>
-                        <span class="info-value"><span class="font-monospace">${device.ip_address || 'N/A'}</span></span>
+                        <span class="info-value"><span class="font-monospace">${device.ip_address || '-'}</span></span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">SSID:</span>
                         <span class="info-value"><i class="fas fa-wifi me-1"></i>${wifiSSID}</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Signal (Rx Power):</span>
-                        <span class="info-value">${device.rx_power ? device.rx_power + ' dBm' : 'N/A'}</span>
+                        <span class="info-label">Signal:</span>
+                        <span class="info-value">${device.rx_power ? device.rx_power + ' dBm' : '-'}</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Temperature:</span>
-                        <span class="info-value">${device.temperature ? device.temperature + '°C' : 'N/A'}</span>
+                        <span class="info-label">Temp:</span>
+                        <span class="info-value">${device.temperature ? device.temperature + '°C' : '-'}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Last Seen:</span>
                         <span class="info-value">${formatLastSeen(device.last_inform_time)}</span>
                     </div>
-                    
-                    <hr class="my-3">
-                    
-                    <div class="mb-3">
-                        <strong><i class="fas fa-wifi me-2"></i>WiFi Settings</strong>
-                    </div>
-                    
+
+                    <hr class="my-2">
+
+                        <div class="mb-2">
+                            <strong style="font-size: 0.8rem;"><i class="fas fa-wifi me-1"></i>WiFi Settings</strong>
+                        </div>
+
                     <!-- SSID Section -->
-                    <div class="card mb-2" style="border: 1px solid #dee2e6;">
-                        <div class="card-body p-2">
-                            <label class="form-label mb-1" style="font-size: 0.85rem; font-weight: 600;">
-                                <i class="fas fa-broadcast-tower me-1"></i>SSID:
-                            </label>
-                            <input type="text" class="form-control form-control-sm mb-2" 
-                                   id="wifi-ssid-${device.serial_number}" 
-                                   value="${wifiSSID}" 
-                                   placeholder="WiFi SSID">
-                            <button class="btn btn-sm btn-primary w-100" 
-                                    onclick="saveSSID('${device.serial_number}')">
-                                <i class="fas fa-save me-1"></i>Save SSID
-                            </button>
+                        <div class="card mb-1" style="border: 1px solid #dee2e6;">
+                            <div class="card-body p-1">
+                                <label class="form-label mb-0" style="font-size: 0.7rem; font-weight: 600;">
+                                    <i class="fas fa-broadcast-tower me-1"></i>SSID:
+                                </label>
+                                <input type="text" class="form-control form-control-sm mb-1"
+                                    style="font-size: 0.75rem; padding: 2px 5px;"
+                                    id="wifi-ssid-${device.serial_number}"
+                                    value="${wifiSSID}"
+                                    placeholder="WiFi SSID">
+                                    <button class="btn btn-sm btn-primary w-100"
+                                        style="font-size: 0.7rem; padding: 2px 5px;"
+                                        onclick="saveSSID('${device.serial_number}')">
+                                        <i class="fas fa-save me-1"></i>Save
+                                    </button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <!-- Password Section -->
-                    <div class="card mb-3" style="border: 1px solid #dee2e6;">
-                        <div class="card-body p-2">
-                            <label class="form-label mb-1" style="font-size: 0.85rem; font-weight: 600;">
-                                <i class="fas fa-lock me-1"></i>Password:
-                            </label>
-                            <input type="password" class="form-control form-control-sm mb-1" 
-                                   id="wifi-pass-${device.serial_number}" 
-                                   placeholder="Enter new password">
-                            <small class="text-muted d-block mb-2">Min. 8 characters</small>
-                            <button class="btn btn-sm btn-success w-100" 
-                                    onclick="savePassword('${device.serial_number}')">
-                                <i class="fas fa-key me-1"></i>Save Password
-                            </button>
+
+                        <!-- Password Section -->
+                        <div class="card mb-2" style="border: 1px solid #dee2e6;">
+                            <div class="card-body p-1">
+                                <label class="form-label mb-0" style="font-size: 0.7rem; font-weight: 600;">
+                                    <i class="fas fa-lock me-1"></i>Password:
+                                </label>
+                                <input type="password" class="form-control form-control-sm mb-1"
+                                    style="font-size: 0.75rem; padding: 2px 5px;"
+                                    id="wifi-pass-${device.serial_number}"
+                                    placeholder="New password">
+                                    <button class="btn btn-sm btn-success w-100"
+                                        style="font-size: 0.7rem; padding: 2px 5px;"
+                                        onclick="savePassword('${device.serial_number}')">
+                                        <i class="fas fa-key me-1"></i>Save
+                                    </button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <hr class="my-3">
-                    
-                    <button class="btn btn-sm btn-primary btn-map-action" onclick="editLocation('${device.serial_number}')">
-                        <i class="fas fa-edit me-1"></i>Edit Location
-                    </button>
-                    <button class="btn btn-sm btn-danger btn-map-action" onclick="deleteLocation('${device.serial_number}')">
-                        <i class="fas fa-trash me-1"></i>Remove from Map
-                    </button>
-                </div>
-            `;
+
+                        <hr class="my-2">
+
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-primary btn-map-action" onclick="editLocation('${device.serial_number}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger btn-map-action" onclick="deleteLocation('${device.serial_number}')">
+                                    <i class="fas fa-trash"></i> Del
+                                </button>
+                            </div>
+                        </div>
+                        `;
         }
 
         function getPPPoEUsername(device) {
@@ -1111,12 +1252,42 @@
 
         function getHeaders() {
             const headers = {};
-            if (currentSession && currentSession.apiKey) {
-                headers['X-API-Key'] = currentSession.apiKey;
+            // Get API key from session (optional for GenieACS)
+            if (currentSession && currentSession.apikey) {
+                headers['X-API-Key'] = currentSession.apikey;
             }
             return headers;
         }
     </script>
+
+    <!-- Bottom Navigation for Mobile -->
+    <nav class="bottom-nav-admin">
+        <div class="nav-item-admin" id="nav-admin-dashboard" onclick="navigateToPage('dashboard', 'dashboard.html')">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+        </div>
+        <div class="nav-item-admin" id="nav-admin-customers" onclick="navigateToPage('customers', 'customers.html')">
+            <i class="fas fa-users"></i>
+            <span>Pelanggan</span>
+        </div>
+        <div class="nav-item-admin active" id="nav-admin-network" onclick="navigateToPage('network', 'map.html')">
+            <i class="fas fa-network-wired"></i>
+            <span>Jaringan</span>
+        </div>
+        <div class="nav-item-admin" id="nav-admin-reports" onclick="navigateToPage('reports', 'reports.html')">
+            <i class="fas fa-chart-bar"></i>
+            <span>Laporan</span>
+        </div>
+        <div class="nav-item-admin" id="nav-admin-settings" onclick="navigateToPage('settings', 'settings.html')">
+            <i class="fas fa-cog"></i>
+            <span>Pengaturan</span>
+        </div>
+    </nav>
+
+    <!-- Bottom Nav Script -->
+    <script src="bottom-nav.js"></script>
+    <!-- Theme Toggle -->
+    <script src="theme-toggle.js"></script>
 </body>
 
 </html>

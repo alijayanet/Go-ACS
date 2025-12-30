@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pelanggan - ACSLite Billing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="gembok_theme.css" rel="stylesheet">
+    <style>
+        /* Base styles that might not be in the theme file */
+        :root {
+            --sidebar-width: 260px;
+        }
+
+        * {
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        .top-header {
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .page-content {
+            padding: 25px;
+        }
+
+        .page-title {
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            border-radius: 15px;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-mini {
+            border-radius: 12px;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-mini-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .stat-mini-icon.primary {
+            background: rgba(0, 245, 255, 0.1);
+            color: var(--neon-cyan);
+        }
+
+        .stat-mini-icon.success {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--neon-green);
+        }
+
+        .stat-mini-icon.warning {
+            background: rgba(255, 107, 53, 0.1);
+            color: var(--neon-orange);
+        }
+
+        .stat-mini-icon.danger {
+            background: rgba(255, 0, 170, 0.1);
+            color: var(--neon-pink);
+        }
+
+        .stat-mini-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .stat-mini-label {
+            font-size: 0.8rem;
+        }
+
+        .data-table {
+            width: 100%;
+        }
+
+        .data-table th {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            padding: 12px 15px;
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 15px;
+            vertical-align: middle;
+        }
+
+        .customer-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--neon-cyan);
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .btn-action {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            background: var(--neon-cyan);
+            border-color: var(--neon-cyan);
+            color: var(--bg-primary);
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding: 10px 15px 10px 40px;
+            border-radius: 10px;
+            width: 300px;
+            font-size: 0.9rem;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        .filter-btn.active {
+            background: var(--gradient-primary);
+            color: var(--bg-primary);
+            border: none;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(20px);
+        }
+
+        .modal-header {
+            background: var(--gradient-primary);
+            color: var(--bg-primary);
+            border-bottom: none;
+        }
+
+        .btn-close-white {
+            filter: invert(1);
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .sidebar-overlay.show {
+            display: block;
+        }
+
+        /* Menu Item Submenu overrides */
+        .menu-item-parent {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 10px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+        }
+
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 576px) {
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            .page-content {
+                padding: 15px;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="dashboard.html" class="sidebar-brand text-decoration-none">
+                <div class="sidebar-brand-icon d-inline-flex p-2 rounded shadow-sm text-white me-2">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="sidebar-brand-text d-inline-block align-middle fw-bold">
+                    ACS-Lite<small class="d-block fw-normal opacity-75" style="font-size: 0.7rem;">ISP Billing
+                        System</small>
+                </div>
+            </a>
+        </div>
+        <nav class="sidebar-menu p-3">
+            <div class="menu-label mb-2">Menu Utama</div>
+            <a href="dashboard.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-home"></i><span>Dashboard</span>
+            </a>
+
+            <div class="menu-label mb-2 mt-3">ISP Billing</div>
+            <div class="menu-item-parent d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1 open active"
+                onclick="toggleSubmenu(this)">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Billing</span>
+                <i class="fas fa-chevron-right menu-arrow ms-auto" style="font-size: 0.8rem;"></i>
+            </div>
+            <div class="menu-submenu active">
+                <a href="packages.html" class="submenu-item">
+                    <i class="fas fa-cube"></i><span>Paket</span>
+                </a>
+                <a href="customers.html" class="submenu-item active">
+                    <i class="fas fa-users"></i><span>Pelanggan</span>
+                </a>
+                <a href="invoices.html" class="submenu-item">
+                    <i class="fas fa-file-invoice"></i><span>Invoice</span>
+                </a>
+                <a href="payments.html" class="submenu-item">
+                    <i class="fas fa-money-bill-wave"></i><span>Pembayaran</span>
+                </a>
+            </div>
+
+            <div class="menu-label mb-2 mt-3">Manajemen Jaringan</div>
+            <a href="acs.html" class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-microchip"></i><span>ACS / TR-069</span>
+            </a>
+            <a href="mikrotik.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-server"></i><span>MikroTik PPPoE</span>
+            </a>
+            <a href="map.html" class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-map-marker-alt"></i><span>Peta Jaringan</span>
+            </a>
+
+            <div class="menu-label mb-2 mt-3">Data & Laporan</div>
+            <a href="reports.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-chart-bar"></i><span>Laporan</span>
+            </a>
+
+            <div class="menu-label mb-2 mt-3">Sistem</div>
+            <a href="settings.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-cog"></i><span>Pengaturan</span>
+            </a>
+            <a href="db_admin.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-database"></i><span>Database Admin</span>
+            </a>
+            <a href="javascript:void(0)" onclick="logout()"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-sign-out-alt"></i><span>Logout</span>
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="d-flex align-items-center gap-3">
+                <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Cari nama, ID, telepon..."
+                        onkeyup="searchCustomers()">
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-success" onclick="syncOnuSerial()">
+                    <i class="fas fa-sync-alt me-1"></i> Sync ONU Serial
+                </button>
+                <button class="btn btn-primary" onclick="openAddModal()">
+                    <i class="fas fa-plus me-1"></i> Tambah Pelanggan
+                </button>
+            </div>
+        </header>
+
+        <div class="page-content">
+            <h2 class="page-title">Pelanggan</h2>
+            <p class="page-subtitle">Kelola data pelanggan ISP Anda</p>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-mini">
+                    <div class="stat-mini-icon primary"><i class="fas fa-users"></i></div>
+                    <div>
+                        <div class="stat-mini-value" id="stat-total">0</div>
+                        <div class="stat-mini-label">Total</div>
+                    </div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-mini-icon success"><i class="fas fa-check-circle"></i></div>
+                    <div>
+                        <div class="stat-mini-value" id="stat-active">0</div>
+                        <div class="stat-mini-label">Aktif</div>
+                    </div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-mini-icon warning"><i class="fas fa-pause-circle"></i></div>
+                    <div>
+                        <div class="stat-mini-value" id="stat-isolir">0</div>
+                        <div class="stat-mini-label">Isolir</div>
+                    </div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-mini-icon danger"><i class="fas fa-ban"></i></div>
+                    <div>
+                        <div class="stat-mini-value" id="stat-suspended">0</div>
+                        <div class="stat-mini-label">Suspended</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="fas fa-list"></i> Daftar Pelanggan</h5>
+                    <div class="filter-bar">
+                        <button class="filter-btn active" onclick="filterStatus('', this)">Semua</button>
+                        <button class="filter-btn" onclick="filterStatus('active', this)">Aktif</button>
+                        <button class="filter-btn" onclick="filterStatus('isolir', this)">Isolir</button>
+                        <button class="filter-btn" onclick="filterStatus('suspended', this)">Suspended</button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Pelanggan</th>
+                                    <th>Telepon</th>
+                                    <th>Paket</th>
+                                    <th>PPPoE</th>
+                                    <th>Status</th>
+                                    <th>Terdaftar</th>
+                                    <th class="text-end">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customers-table">
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                                        <p class="mt-2 text-muted">Loading...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal fade" id="customerModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-title"><i class="fas fa-user-plus me-2"></i>Tambah Pelanggan</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="customer-form">
+                        <input type="hidden" id="edit-id">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="input-name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">No. Telepon <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="input-phone" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="input-email">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Paket</label>
+                                <select class="form-select" id="input-package"></select>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Alamat</label>
+                                <textarea class="form-control" id="input-address" rows="2"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">PPPoE Username</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="input-pppoe-user">
+                                        <option value="">-- Manual Input / Load First --</option>
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" title="Load dari MikroTik"
+                                        onclick="loadMikroTikSecrets(this)">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">PPPoE Password</label>
+                                <input type="text" class="form-control" id="input-pppoe-pass">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <!-- Protal Login Fields -->
+                            <div class="col-12">
+                                <hr class="border-secondary my-3">
+                            </div>
+                            <div class="col-12 mb-2">
+                                <h6 class="text-primary"><i class="fas fa-lock me-2"></i>Akses Login Pelanggan</h6>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Username Login</label>
+                                <input type="text" class="form-control" id="input-portal-user"
+                                    placeholder="Kosongkan = pakai PPPoE User">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Password Login</label>
+                                <input type="text" class="form-control" id="input-portal-pass"
+                                    placeholder="Default: 123456">
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <hr class="border-secondary my-3">
+                        </div>
+                        <div class="row">
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Tanggal Tagihan</label>
+                                <select class="form-select" id="input-billing-date">
+                                    <option value="1">Tanggal 1</option>
+                                    <option value="5">Tanggal 5</option>
+                                    <option value="10">Tanggal 10</option>
+                                    <option value="15">Tanggal 15</option>
+                                    <option value="20">Tanggal 20</option>
+                                    <option value="25">Tanggal 25</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Biaya Bulanan</label>
+                                <input type="number" class="form-control" id="input-monthly-fee">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Serial ONU</label>
+                                <input type="text" class="form-control" id="input-onu-serial"
+                                    placeholder="ALCLXXXXXXXXXX">
+                            </div>
+                        </div>
+                </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="saveCustomer()">
+                    <i class="fas fa-save me-1"></i> Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API = `http://${window.location.hostname}:8888/api/billing_api.php`;
+        const MT_API = `http://${window.location.hostname}:8888/api/mikrotik_api.php`;
+
+        let allCustomers = [];
+
+        async function loadMikroTikSecrets(btn) {
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            const select = document.getElementById('input-pppoe-user');
+            const currentValue = select.value || select.getAttribute('data-value'); // data-value from edit mode
+
+            try {
+                const response = await fetch(`${MT_API}?action=secrets`);
+                const result = await response.json();
+
+                if (result.success) {
+                    select.innerHTML = '<option value="">-- Pilih User PPPoE --</option>';
+
+                    const secrets = result.secrets || [];
+                    if (secrets.length === 0) {
+                        alert('Tidak ada user PPPoE ditemukan di MikroTik');
+                    } else {
+                        secrets.sort((a, b) => a.name.localeCompare(b.name));
+
+                        secrets.forEach(s => {
+                            const option = document.createElement('option');
+                            option.value = s.name;
+                            option.innerText = `${s.name} (Profile: ${s.profile || '-'})`;
+                            select.appendChild(option);
+                        });
+
+                        // Restore previous selection if it exists
+                        if (currentValue) {
+                            const exists = secrets.some(s => s.name === currentValue);
+                            if (exists) {
+                                select.value = currentValue;
+                            } else {
+                                // Add non-existing value as option
+                                const opt = document.createElement('option');
+                                opt.value = currentValue;
+                                opt.text = `${currentValue} (Not in MikroTik)`;
+                                opt.selected = true;
+                                select.appendChild(opt);
+                            }
+                        }
+
+                        alert(`Berhasil memuat ${secrets.length} user dari MikroTik.`);
+                        select.focus();
+                    }
+                } else {
+                    alert(`Gagal memuat dari MikroTik: ${result.error}`);
+                }
+            } catch (e) {
+                alert(`Error: ${e.message}`);
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        let packages = [];
+        let currentFilter = '';
+        let customerModal;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            customerModal = new bootstrap.Modal(document.getElementById('customerModal'));
+            loadPackages();
+            loadCustomers();
+            loadStats();
+        });
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('show');
+            document.getElementById('sidebar-overlay').classList.toggle('show');
+        }
+
+        function toggleSubmenu(el) {
+            const submenu = el.nextElementSibling;
+            el.classList.toggle('open');
+            submenu.classList.toggle('active');
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API}?action=dashboard`);
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('stat-total').textContent = result.stats.total_customers;
+                    document.getElementById('stat-active').textContent = result.stats.active_customers;
+                    document.getElementById('stat-isolir').textContent = result.stats.isolir_customers;
+                    document.getElementById('stat-suspended').textContent =
+                        result.stats.total_customers - result.stats.active_customers - result.stats.isolir_customers;
+                }
+            } catch (e) {
+                console.error('Error loading stats:', e);
+            }
+        }
+
+        async function loadPackages() {
+            try {
+                const response = await fetch(`${API}?action=packages`);
+                const result = await response.json();
+                if (result.success) {
+                    packages = result.packages;
+                    const select = document.getElementById('input-package');
+                    select.innerHTML = '<option value="">Pilih Paket</option>' +
+                        packages.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} - Rp ${parseInt(p.price).toLocaleString('id-ID')}</option>`).join('');
+
+                    select.addEventListener('change', function () {
+                        const selected = this.options[this.selectedIndex];
+                        if (selected.dataset.price) {
+                            document.getElementById('input-monthly-fee').value = selected.dataset.price;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Error loading packages:', e);
+            }
+        }
+
+        async function loadCustomers() {
+            const tbody = document.getElementById('customers-table');
+
+            try {
+                let url = `${API}?action=customers`;
+                if (currentFilter) url += `&status=${currentFilter}`;
+
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.success) {
+                    allCustomers = result.customers;
+                    renderCustomers(result.customers);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-danger">${result.error}</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-danger">Error loading data</td></tr>`;
+            }
+        }
+
+        function renderCustomers(customers) {
+            const tbody = document.getElementById('customers-table');
+
+            if (customers.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="7">
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <p>Belum ada pelanggan</p>
+                            <button class="btn btn-primary" onclick="openAddModal()">
+                                <i class="fas fa-plus me-1"></i> Tambah Pelanggan
+                            </button>
+                        </div>
+                    </td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = customers.map(c => {
+                const initials = c.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                const statusClass = c.status === 'active' ? 'active' : (c.status === 'isolir' ? 'isolir' : 'suspended');
+                const statusIcon = c.status === 'active' ? 'check' : (c.status === 'isolir' ? 'pause' : 'ban');
+                const statusText = c.status === 'active' ? 'Aktif' : (c.status === 'isolir' ? 'Isolir' : 'Suspended');
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="customer-cell">
+                                <div class="customer-avatar">${initials}</div>
+                                <div>
+                                    <div class="customer-name">${c.name}</div>
+                                    <div class="customer-id">${c.customer_id}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${c.phone}</td>
+                        <td>${c.package_name || '-'}<br><small class="text-muted">${c.package_speed || ''}</small></td>
+                        <td><code>${c.pppoe_username || '-'}</code></td>
+                        <td>
+                            <span class="status-badge ${statusClass}">
+                                <i class="fas fa-${statusIcon}"></i> ${statusText}
+                            </span>
+                        </td>
+                        <td><small>${c.registered_at || '-'}</small></td>
+                        <td class="text-end">
+                            <button class="btn-action" onclick="editCustomer(${c.id})" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            ${c.status === 'active' ?
+                        `<button class="btn-action warning" onclick="isolirCustomer(${c.id}, '${c.name}')" title="Isolir">
+                                    <i class="fas fa-pause"></i>
+                                </button>` :
+                        (c.status === 'isolir' ?
+                            `<button class="btn-action success" onclick="unisolirCustomer(${c.id}, '${c.name}')" title="Unisolir (Sudah Bayar)">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="btn-action info" style="color: #0dcaf0; border-color: rgba(13, 202, 240, 0.2); background: rgba(13, 202, 240, 0.05);" onclick="unisolirWithoutPayment(${c.id}, '${c.name}')" title="Buka Isolir Tanpa Bayar">
+                                    <i class="fas fa-lock-open"></i>
+                                </button>` :
+                            `<button class="btn-action success" onclick="unisolirCustomer(${c.id}, '${c.name}')" title="Aktifkan">
+                                    <i class="fas fa-play"></i>
+                                </button>`
+                        )
+                    }
+                            <button class="btn-action" onclick="createInvoice(${c.id})" title="Buat Invoice">
+                                <i class="fas fa-file-invoice"></i>
+                            </button>
+                            <button class="btn-action danger" onclick="deleteCustomer(${c.id}, '${c.name}')" title="Hapus">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ... existing searchCustomers ...
+
+        async function unisolirWithoutPayment(id, name) {
+            if (!confirm(`BUKA ISOLIR TANPA BAYAR untuk "${name}"?\n\nTagihan akan tetap UNPAID dan digabung bulan depan.`)) return;
+
+            const notes = prompt("Masukkan alasan (wajib):", "Kebijakan Admin");
+            if (!notes) return;
+
+            try {
+                const response = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'unisolir_without_payment',
+                        customer_id: id,
+                        notes: notes
+                    })
+                });
+
+                const result = await response.json();
+
+                let msg = result.success ? `✅ ${result.message}` : `❌ ${result.error}`;
+                if (result.success && result.note) msg += `\n\nInfo: ${result.note}`;
+                if (result.mikrotik_message) msg += `\nMikroTik: ${result.mikrotik_message}`;
+
+                alert(msg);
+                loadCustomers();
+                loadStats();
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+
+        function searchCustomers() {
+            const term = document.getElementById('search-input').value.toLowerCase();
+            const filtered = allCustomers.filter(c =>
+                c.name.toLowerCase().includes(term) ||
+                c.customer_id.toLowerCase().includes(term) ||
+                c.phone.includes(term) ||
+                (c.pppoe_username && c.pppoe_username.toLowerCase().includes(term))
+            );
+            renderCustomers(filtered);
+        }
+
+        function filterStatus(status, btn) {
+            currentFilter = status;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadCustomers();
+        }
+
+        function openAddModal() {
+            document.getElementById('modal-title').innerHTML = '<i class="fas fa-user-plus me-2"></i>Tambah Pelanggan';
+            document.getElementById('customer-form').reset();
+            document.getElementById('edit-id').value = '';
+
+            // Reset select PPPoE
+            const pppoeSelect = document.getElementById('input-pppoe-user');
+            pppoeSelect.innerHTML = '<option value="">-- Load dari MikroTik --</option>';
+            pppoeSelect.setAttribute('data-value', '');
+
+            customerModal.show();
+        }
+
+        async function editCustomer(id) {
+            try {
+                const response = await fetch(`${API}?action=customer&id=${id}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const c = result.customer;
+                    document.getElementById('modal-title').innerHTML = '<i class="fas fa-user-edit me-2"></i>Edit Pelanggan';
+                    document.getElementById('edit-id').value = c.id;
+                    document.getElementById('input-name').value = c.name;
+                    document.getElementById('input-phone').value = c.phone;
+                    document.getElementById('input-email').value = c.email || '';
+                    document.getElementById('input-address').value = c.address || '';
+                    document.getElementById('input-package').value = c.package_id || '';
+
+                    // Handle Select PPPoE User
+                    const pppoeSelect = document.getElementById('input-pppoe-user');
+                    // Reset
+                    pppoeSelect.innerHTML = '<option value="">-- Load dari MikroTik --</option>';
+
+                    if (c.pppoe_username) {
+                        const opt = document.createElement('option');
+                        opt.value = c.pppoe_username;
+                        opt.text = c.pppoe_username;
+                        opt.selected = true;
+                        pppoeSelect.appendChild(opt);
+                        // Store in data attribute for reload
+                        pppoeSelect.setAttribute('data-value', c.pppoe_username);
+                    } else {
+                        pppoeSelect.setAttribute('data-value', '');
+                    }
+                    document.getElementById('input-pppoe-pass').value = c.pppoe_password || '';
+                    document.getElementById('input-billing-date').value = c.billing_date || 1;
+                    document.getElementById('input-monthly-fee').value = c.monthly_fee || '';
+                    document.getElementById('input-onu-serial').value = c.onu_serial || '';
+                    customerModal.show();
+                }
+            } catch (e) {
+                alert('Error loading customer data');
+            }
+        }
+
+        async function saveCustomer() {
+            const id = document.getElementById('edit-id').value;
+            const action = id ? 'update_customer' : 'add_customer';
+
+            const data = {
+                action: action,
+                id: id || undefined,
+                name: document.getElementById('input-name').value,
+                phone: document.getElementById('input-phone').value,
+                email: document.getElementById('input-email').value,
+                address: document.getElementById('input-address').value,
+                package_id: document.getElementById('input-package').value || null,
+                pppoe_username: document.getElementById('input-pppoe-user').value,
+                pppoe_password: document.getElementById('input-pppoe-pass').value,
+                billing_date: document.getElementById('input-billing-date').value,
+                monthly_fee: document.getElementById('input-monthly-fee').value,
+                onu_serial: document.getElementById('input-onu-serial').value,
+                portal_username: document.getElementById('input-portal-user').value,
+                portal_password: document.getElementById('input-portal-pass').value
+            };
+
+            if (!data.name || !data.phone) {
+                alert('Nama dan Telepon wajib diisi');
+                return;
+            }
+
+            try {
+                const response = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ ${result.message}`);
+                    customerModal.hide();
+                    loadCustomers();
+                    loadStats();
+                } else {
+                    alert(`❌ ${result.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+
+        async function isolirCustomer(id, name) {
+            if (!confirm(`ISOLIR pelanggan "${name}"?`)) return;
+
+            try {
+                const response = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'isolir', id })
+                });
+
+                const result = await response.json();
+                alert(result.success ? `✅ ${result.message}` : `❌ ${result.error}`);
+                loadCustomers();
+                loadStats();
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+
+        async function unisolirCustomer(id, name) {
+            if (!confirm(`AKTIFKAN kembali pelanggan "${name}"?`)) return;
+
+            try {
+                const response = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'unisolir', id })
+                });
+
+                const result = await response.json();
+                alert(result.success ? `✅ ${result.message}` : `❌ ${result.error}`);
+                loadCustomers();
+                loadStats();
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+
+        async function deleteCustomer(id, name) {
+            if (!confirm(`HAPUS pelanggan "${name}"?\n\nSemua data invoice dan pembayaran juga akan dihapus!`)) return;
+            if (!confirm(`Konfirmasi sekali lagi: Hapus "${name}"?`)) return;
+
+            try {
+                const response = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete_customer', id })
+                });
+
+                const result = await response.json();
+                alert(result.success ? `✅ ${result.message}` : `❌ ${result.error}`);
+                loadCustomers();
+                loadStats();
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+
+        async function createInvoice(customerId) {
+            if (!confirm('Buat invoice bulanan untuk pelanggan ini?')) return;
+
+            try {
+                const response = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'create_invoice',
+                        customer_id: customerId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ ${result.message}\n\nInvoice ID: ${result.invoice_id || 'N/A'}`);
+                    // Redirect to invoices page
+                    if (confirm('Lihat invoice yang baru dibuat?')) {
+                        window.location.href = 'invoices.html';
+                    }
+                } else {
+                    alert(`❌ ${result.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            }
+        }
+
+        async function syncOnuSerial() {
+            if (!confirm('Sync serial ONU untuk semua pelanggan berdasarkan PPPoE username?\n\nIni akan mencocokkan PPPoE username di customers dengan data di onu_locations.')) {
+                return;
+            }
+
+            const syncBtn = event.target.closest('button');
+            const originalHtml = syncBtn.innerHTML;
+            syncBtn.disabled = true;
+            syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Syncing...';
+
+            try {
+                const response = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'sync_onu_serial' })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ Sync berhasil!\n\n` +
+                        `Updated: ${result.updated || 0}\n` +
+                        `Skipped: ${result.skipped || 0}\n\n` +
+                        (result.details ? result.details.join('\n') : ''));
+                    loadCustomers();
+                } else {
+                    alert(`❌ ${result.error || 'Sync gagal'}`);
+                }
+            } catch (e) {
+                alert(`❌ Error: ${e.message}`);
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = originalHtml;
+            }
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                sessionStorage.removeItem('acs_session');
+                window.location.href = 'login.html';
+            }
+        }
+    </script>
+
+    <!-- Bottom Navigation for Mobile -->
+    <nav class="bottom-nav-admin">
+        <div class="nav-item-admin" id="nav-admin-dashboard" onclick="navigateToPage('dashboard', 'dashboard.html')">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+        </div>
+        <div class="nav-item-admin active" id="nav-admin-customers"
+            onclick="navigateToPage('customers', 'customers.html')">
+            <i class="fas fa-users"></i>
+            <span>Pelanggan</span>
+        </div>
+        <div class="nav-item-admin" id="nav-admin-network" onclick="navigateToPage('network', 'acs.html')">
+            <i class="fas fa-network-wired"></i>
+            <span>Jaringan</span>
+        </div>
+        <div class="nav-item-admin" id="nav-admin-reports" onclick="navigateToPage('reports', 'reports.html')">
+            <i class="fas fa-chart-bar"></i>
+            <span>Laporan</span>
+        </div>
+        <div class="nav-item-admin" id="nav-admin-settings" onclick="navigateToPage('settings', 'settings.html')">
+            <i class="fas fa-cog"></i>
+            <span>Pengaturan</span>
+        </div>
+    </nav>
+
+    <!-- Bottom Nav Script -->
+    <script src="bottom-nav.js"></script>
+    <!-- Theme Toggle -->
+    <script src="theme-toggle.js"></script>
+</body>
+
+</html>

@@ -2,5 +2,6 @@
     "admin": {
         "username": "admin",
         "password": "admin123"
-    }
+    },
+    "api_key": "secret"
 }
