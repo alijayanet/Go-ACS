@@ -1436,256 +1436,268 @@ Buka browser ketik: 192.168.8.1/login</textarea>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Rate Limit</label>
                                 <input type="text" class="form-control" id="edit-hp-rate" placeholder="e.g., 10M/10M">
+                                <small class="text-muted">Format: upload/download (e.g., 5M/10M)</small>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Session Timeout</label>
                                 <input type="text" class="form-control" id="edit-hp-session" placeholder="e.g., 1d, 8h">
+                                <small class="text-muted">1d = 1 day, 8h = 8 hours</small>
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Idle Timeout</label>
                                 <input type="text" class="form-control" id="edit-hp-idle" placeholder="e.g., 5m">
-                                <div class="col-md-4 mb-3">
-                                    <label class="form-label">Shared Users</label>
-                                    <input type="number" class="form-control" id="edit-hp-shared" placeholder="1"
-                                        value="1">
-                                </div>
+                                <small class="text-muted">Disconnect if idle</small>
                             </div>
-                            <!-- Script Generator Tools -->
-                            <div class="card bg-light mb-3">
-                                <div class="card-body py-2">
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" id="edit-hp-auto-script"
-                                            onchange="toggleEditScriptGen()">
-                                        <label class="form-check-label fw-bold" for="edit-hp-auto-script">Enable Script
-                                            Generator</label>
-                                    </div>
-
-                                    <div id="edit-hp-gen-tools" style="display:none;">
-                                        <div class="row g-2 mb-2">
-                                            <div class="col-md-4">
-                                                <label class="small form-label mt-1">Harga (Rp)</label>
-                                                <input type="number" class="form-control form-control-sm"
-                                                    id="edit-hp-price" placeholder="3000"
-                                                    oninput="generateOnLoginScript('edit-hp')">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="small form-label mt-1">Durasi</label>
-                                                <div class="input-group input-group-sm">
-                                                    <input type="number" class="form-control"
-                                                        id="edit-hp-duration-value" placeholder="1" value="1"
-                                                        oninput="generateOnLoginScript('edit-hp')">
-                                                    <select class="form-select" id="edit-hp-duration-unit"
-                                                        onchange="generateOnLoginScript('edit-hp')">
-                                                        <option value="h">Jam</option>
-                                                        <option value="d" selected>Hari</option>
-                                                        <option value="w">Minggu</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="small form-label mt-1">RouterOS</label>
-                                                <select class="form-select form-select-sm" id="edit-hp-ros-version"
-                                                    onchange="generateOnLoginScript('edit-hp')">
-                                                    <option value="6" selected>ROS 6.x</option>
-                                                    <option value="7">ROS 7.x</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <!-- Telegram Accordion for Edit -->
-                                        <div class="accordion accordion-flush" id="editTelegramAccordion">
-                                            <div class="accordion-item bg-light border-0">
-                                                <h2 class="accordion-header">
-                                                    <button
-                                                        class="accordion-button collapsed py-1 px-0 bg-light shadow-none"
-                                                        type="button" data-bs-toggle="collapse"
-                                                        data-bs-target="#editTelegramCollapse"
-                                                        style="font-size: 0.85rem;">
-                                                        <i class="fab fa-telegram me-2"></i>Telegram Notification
-                                                        (Optional)
-                                                    </button>
-                                                </h2>
-                                                <div id="editTelegramCollapse" class="accordion-collapse collapse"
-                                                    data-bs-parent="#editTelegramAccordion">
-                                                    <div class="accordion-body px-0 pt-0 pb-2">
-                                                        <div class="mb-2">
-                                                            <input type="text" class="form-control form-control-sm"
-                                                                id="edit-hp-telegram-token" placeholder="Bot Token"
-                                                                oninput="generateOnLoginScript('edit-hp')">
-                                                        </div>
-                                                        <div>
-                                                            <input type="text" class="form-control form-control-sm"
-                                                                id="edit-hp-telegram-chat" placeholder="Chat ID"
-                                                                oninput="generateOnLoginScript('edit-hp')">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <hr class="my-4">
-                            <h6 class="mb-3"><i class="fas fa-code me-2"></i>On-Login Script</h6>
-                            <div class="mb-3">
-                                <label class="form-label">On-Login Script</label>
-                                <textarea class="form-control font-monospace" id="edit-hp-script" rows="10"
-                                    style="font-size: 11px;"></textarea>
-                                <div class="mt-2">
-                                    <button type="button" class="btn btn-sm btn-secondary" onclick="copyEditScript()">
-                                        <i class="fas fa-copy"></i> Copy
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-danger" onclick="clearEditScript()">
-                                        <i class="fas fa-times"></i> Clear Script
-                                    </button>
-                                </div>
-                                <small class="text-muted">Edit the on-login script directly or clear it to
-                                    remove</small>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Shared Users</label>
+                                <input type="number" class="form-control" id="edit-hp-shared" placeholder="1" value="1">
+                                <small class="text-muted">Max concurrent logins</small>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary"
-                                style="background: linear-gradient(135deg, #f39c12, #e67e22); border: none;"
-                                onclick="updateHotspotProfile()">
-                                <i class="fas fa-save me-2"></i>Save Changes
-                            </button>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Keepalive Timeout</label>
+                                <input type="text" class="form-control" id="edit-hp-keepalive" placeholder="2m">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Status Autorefresh</label>
+                                <input type="text" class="form-control" id="edit-hp-autorefresh" placeholder="1m">
+                            </div>
                         </div>
+
+                        <!-- Mikhmon Script Generator -->
+                        <hr class="my-4">
+                        <h6 class="mb-3"><i class="fas fa-code me-2"></i>Mikhmon On-Login Script</h6>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Harga Voucher (Rp)</label>
+                                <input type="number" class="form-control" id="edit-hp-price" placeholder="3000"
+                                    oninput="generateEditOnLoginScript()">
+                                <small class="text-muted">Harga jual voucher</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Durasi</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="edit-hp-duration-value"
+                                        placeholder="1" value="1" oninput="generateEditOnLoginScript()">
+                                    <select class="form-select" id="edit-hp-duration-unit"
+                                        onchange="generateEditOnLoginScript()">
+                                        <option value="h">Jam</option>
+                                        <option value="d" selected>Hari</option>
+                                        <option value="w">Minggu</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">RouterOS Version</label>
+                                <select class="form-select" id="edit-hp-ros-version"
+                                    onchange="generateEditOnLoginScript()">
+                                    <option value="6" selected>ROS 6.x</option>
+                                    <option value="7">ROS 7.x</option>
+                                </select>
+                                <small class="text-muted">Pilih sesuai versi MikroTik Anda</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="edit-hp-auto-script" checked
+                                        onchange="toggleEditScriptPreview()">
+                                    <label class="form-check-label" for="edit-hp-auto-script">
+                                        Auto-generate On-Login Script
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Script Preview -->
+                        <div class="mb-3" id="edit-hp-script-preview-container">
+                            <label class="form-label">On-Login Script</label>
+                            <textarea class="form-control font-monospace" id="edit-hp-script" rows="8"
+                                style="font-size: 11px;"></textarea>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-secondary"
+                                    onclick="copyEditHotspotScript()">
+                                    <i class="fas fa-copy"></i> Copy Script
+                                </button>
+                                <button type="button" class="btn btn-sm btn-info" onclick="generateEditOnLoginScript()">
+                                    <i class="fas fa-sync"></i> Regenerate
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="clearEditScript()">
+                                    <i class="fas fa-times"></i> Clear Script
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Settings (Telegram) -->
+                        <div class="accordion" id="editAdvancedHotspotSettings">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#editTelegramHotspotSettings">
+                                        <i class="fab fa-telegram me-2"></i> Telegram Notification (Optional)
+                                    </button>
+                                </h2>
+                                <div id="editTelegramHotspotSettings" class="accordion-collapse collapse"
+                                    data-bs-parent="#editAdvancedHotspotSettings">
+                                    <div class="accordion-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Bot Token</label>
+                                            <input type="text" class="form-control" id="edit-hp-telegram-token"
+                                                placeholder="123456:ABC-DEF..." oninput="generateEditOnLoginScript()">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Chat ID</label>
+                                            <input type="text" class="form-control" id="edit-hp-telegram-chat"
+                                                placeholder="567858628" oninput="generateEditOnLoginScript()">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary"
+                            style="background: linear-gradient(135deg, #f39c12, #e67e22); border: none;"
+                            onclick="updateHotspotProfile()">
+                            <i class="fas fa-save me-2"></i>Save Changes
+                        </button>
                     </div>
                 </div>
             </div>
-
-            <!-- Add Server Profile Modal -->
-            <div class="modal fade" id="addServerProfileModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header" style="background: linear-gradient(135deg, #16a085, #1abc9c);">
-                            <h5 class="modal-title"><i class="fas fa-server me-2"></i>Add Hotspot Server Profile</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div> <!-- Add Server Profile Modal -->
+        <div class="modal fade" id="addServerProfileModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #16a085, #1abc9c);">
+                        <h5 class="modal-title"><i class="fas fa-server me-2"></i>Add Hotspot Server Profile</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Profile Name *</label>
+                                <input type="text" class="form-control" id="add-sp-name" placeholder="e.g., hsprof1">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">HTML Directory</label>
+                                <input type="text" class="form-control" id="add-sp-html" placeholder="hotspot"
+                                    value="hotspot">
+                            </div>
                         </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Profile Name *</label>
-                                    <input type="text" class="form-control" id="add-sp-name"
-                                        placeholder="e.g., hsprof1">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">HTML Directory</label>
-                                    <input type="text" class="form-control" id="add-sp-html" placeholder="hotspot"
-                                        value="hotspot">
-                                </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">DNS Name</label>
+                                <input type="text" class="form-control" id="add-sp-dns"
+                                    placeholder="hotspot.example.com">
                             </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">DNS Name</label>
-                                    <input type="text" class="form-control" id="add-sp-dns"
-                                        placeholder="hotspot.example.com">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Login By</label>
-                                    <select class="form-select" id="add-sp-login">
-                                        <option value="http-chap">HTTP CHAP</option>
-                                        <option value="http-pap">HTTP PAP</option>
-                                        <option value="https">HTTPS</option>
-                                        <option value="cookie">Cookie</option>
-                                        <option value="mac">MAC Address</option>
-                                    </select>
-                                </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Login By</label>
+                                <select class="form-select" id="add-sp-login">
+                                    <option value="http-chap">HTTP CHAP</option>
+                                    <option value="http-pap">HTTP PAP</option>
+                                    <option value="https">HTTPS</option>
+                                    <option value="cookie">Cookie</option>
+                                    <option value="mac">MAC Address</option>
+                                </select>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">SMTP Server</label>
-                                    <input type="text" class="form-control" id="add-sp-smtp" placeholder="0.0.0.0">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Split User Domain</label>
-                                    <select class="form-select" id="add-sp-split">
-                                        <option value="no">No</option>
-                                        <option value="yes">Yes</option>
-                                    </select>
-                                </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">SMTP Server</label>
+                                <input type="text" class="form-control" id="add-sp-smtp" placeholder="0.0.0.0">
                             </div>
-                            <div class="mb-3">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Split User Domain</label>
+                                <select class="form-select" id="add-sp-split">
+                                    <option value="no">No</option>
+                                    <option value="yes">Yes</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rate Limit</label>
+                            <input type="text" class="form-control" id="add-sp-rate" placeholder="e.g., 10M/10M">
+                            <small class="text-muted">Default rate limit for this server profile</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success"
+                            style="background: linear-gradient(135deg, #16a085, #1abc9c); border: none;"
+                            onclick="addServerProfile()">
+                            <i class="fas fa-plus me-2"></i>Add Server Profile
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add PPPoE Profile Modal -->
+        <div class="modal fade" id="addPPPoEProfileModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header info" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                        <h5 class="modal-title"><i class="fas fa-layer-group me-2"></i>Add PPPoE Profile</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Profile Name *</label>
+                                <input type="text" class="form-control" id="add-pppoe-name"
+                                    placeholder="e.g., 10Mbps, 20Mbps">
+                            </div>
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Rate Limit</label>
-                                <input type="text" class="form-control" id="add-sp-rate" placeholder="e.g., 10M/10M">
-                                <small class="text-muted">Default rate limit for this server profile</small>
+                                <input type="text" class="form-control" id="add-pppoe-rate"
+                                    placeholder="e.g., 10M/10M, 20M/20M">
+                                <small class="text-muted">Format: upload/download</small>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-success"
-                                style="background: linear-gradient(135deg, #16a085, #1abc9c); border: none;"
-                                onclick="addServerProfile()">
-                                <i class="fas fa-plus me-2"></i>Add Server Profile
-                            </button>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Local Address</label>
+                                <input type="text" class="form-control" id="add-pppoe-local"
+                                    placeholder="e.g., 10.10.10.1">
+                                <small class="text-muted">Server IP address pool</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Remote Address</label>
+                                <input type="text" class="form-control" id="add-pppoe-remote"
+                                    placeholder="e.g., 10.10.10.2-10.10.10.254">
+                                <small class="text-muted">Client IP address pool</small>
+                            </div>
                         </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">DNS Server</label>
+                                <input type="text" class="form-control" id="add-pppoe-dns"
+                                    placeholder="e.g., 8.8.8.8,8.8.4.4">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Session Timeout</label>
+                                <input type="text" class="form-control" id="add-pppoe-timeout"
+                                    placeholder="e.g., 1d, 0 (unlimited)">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary"
+                            style="background: linear-gradient(135deg, #3498db, #2980b9); border: none;"
+                            onclick="addPPPoEProfile()">
+                            <i class="fas fa-plus me-2"></i>Add Profile
+                        </button>
                     </div>
                 </div>
             </div>
-
-            <!-- Add PPPoE Profile Modal -->
-            <div class="modal fade" id="addPPPoEProfileModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header info" style="background: linear-gradient(135deg, #3498db, #2980b9);">
-                            <h5 class="modal-title"><i class="fas fa-layer-group me-2"></i>Add PPPoE Profile</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Profile Name *</label>
-                                    <input type="text" class="form-control" id="add-pppoe-name"
-                                        placeholder="e.g., 10Mbps, 20Mbps">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Rate Limit</label>
-                                    <input type="text" class="form-control" id="add-pppoe-rate"
-                                        placeholder="e.g., 10M/10M, 20M/20M">
-                                    <small class="text-muted">Format: upload/download</small>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Local Address</label>
-                                    <input type="text" class="form-control" id="add-pppoe-local"
-                                        placeholder="e.g., 10.10.10.1">
-                                    <small class="text-muted">Server IP address pool</small>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Remote Address</label>
-                                    <input type="text" class="form-control" id="add-pppoe-remote"
-                                        placeholder="e.g., 10.10.10.2-10.10.10.254">
-                                    <small class="text-muted">Client IP address pool</small>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">DNS Server</label>
-                                    <input type="text" class="form-control" id="add-pppoe-dns"
-                                        placeholder="e.g., 8.8.8.8,8.8.4.4">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Session Timeout</label>
-                                    <input type="text" class="form-control" id="add-pppoe-timeout"
-                                        placeholder="e.g., 1d, 0 (unlimited)">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary"
-                                style="background: linear-gradient(135deg, #3498db, #2980b9); border: none;"
-                                onclick="addPPPoEProfile()">
-                                <i class="fas fa-plus me-2"></i>Add Profile
-                            </button>
-                        </div>
-                    </div>
-                </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2720,23 +2732,23 @@ Buka browser ketik: 192.168.8.1/login</textarea>
                 return;
             }
 
-            // Populate edit form
+            // Populate edit form - Basic fields
             document.getElementById('edit-hp-original-name').value = profile.name;
             document.getElementById('edit-hp-name').value = profile.name;
             document.getElementById('edit-hp-rate').value = profile['rate-limit'] || '';
             document.getElementById('edit-hp-session').value = profile['session-timeout'] || '';
             document.getElementById('edit-hp-idle').value = profile['idle-timeout'] || '';
             document.getElementById('edit-hp-shared').value = profile['shared-users'] || '1';
+            document.getElementById('edit-hp-keepalive').value = profile['keepalive-timeout'] || '';
+            document.getElementById('edit-hp-autorefresh').value = profile['status-autorefresh'] || '';
             document.getElementById('edit-hp-script').value = profile['on-login'] || '';
 
-            // Reset Script Generator state
+            // Reset Script Generator fields
             document.getElementById('edit-hp-auto-script').checked = false;
-            document.getElementById('edit-hp-gen-tools').style.display = 'none';
-            document.getElementById('edit-hp-script').removeAttribute('readonly');
-
-            // Reset Generator inputs
             document.getElementById('edit-hp-price').value = '';
             document.getElementById('edit-hp-duration-value').value = '1';
+            document.getElementById('edit-hp-duration-unit').value = 'd';
+            document.getElementById('edit-hp-ros-version').value = '6';
             document.getElementById('edit-hp-telegram-token').value = '';
             document.getElementById('edit-hp-telegram-chat').value = '';
 
@@ -2754,6 +2766,8 @@ Buka browser ketik: 192.168.8.1/login</textarea>
             const sessionTimeout = document.getElementById('edit-hp-session').value.trim();
             const idleTimeout = document.getElementById('edit-hp-idle').value.trim();
             const sharedUsers = document.getElementById('edit-hp-shared').value;
+            const keepaliveTimeout = document.getElementById('edit-hp-keepalive').value.trim();
+            const statusAutorefresh = document.getElementById('edit-hp-autorefresh').value.trim();
             const onLoginScript = document.getElementById('edit-hp-script').value.trim();
 
             if (!name) {
@@ -2772,6 +2786,8 @@ Buka browser ketik: 192.168.8.1/login</textarea>
                         session_timeout: sessionTimeout,
                         idle_timeout: idleTimeout,
                         shared_users: sharedUsers,
+                        keepalive_timeout: keepaliveTimeout,
+                        status_autorefresh: statusAutorefresh,
                         on_login: onLoginScript
                     })
                 });
@@ -3470,7 +3486,7 @@ Buka browser ketik: 192.168.8.1/login</textarea>
 
         // ========== ON-LOGIN SCRIPT GENERATOR ==========
 
-        // Toggle script preview visibility
+        // Toggle script preview visibility - Add form
         function toggleScriptPreview() {
             const autoGen = document.getElementById('add-hp-auto-script').checked;
             const container = document.getElementById('add-hp-script-preview-container');
@@ -3481,6 +3497,58 @@ Buka browser ketik: 192.168.8.1/login</textarea>
             } else {
                 container.style.display = 'none';
             }
+        }
+
+        // Toggle script preview visibility - Edit form
+        function toggleEditScriptPreview() {
+            const autoGen = document.getElementById('edit-hp-auto-script').checked;
+            const scriptArea = document.getElementById('edit-hp-script');
+
+            if (autoGen) {
+                generateEditOnLoginScript();
+            }
+        }
+
+        // Generate On-Login Script for Edit form
+        function generateEditOnLoginScript() {
+            const autoGen = document.getElementById('edit-hp-auto-script');
+            if (!autoGen || !autoGen.checked) return;
+
+            const price = parseInt(document.getElementById('edit-hp-price').value) || 0;
+            const durationValue = parseInt(document.getElementById('edit-hp-duration-value').value) || 1;
+            const durationUnit = document.getElementById('edit-hp-duration-unit').value;
+            const rosVersion = document.getElementById('edit-hp-ros-version').value;
+            const telegramToken = document.getElementById('edit-hp-telegram-token').value;
+            const telegramChat = document.getElementById('edit-hp-telegram-chat').value;
+
+            const duration = durationValue + durationUnit;
+            const priceDisplay = Math.floor(price * 0.7);
+
+            let script = '';
+
+            if (rosVersion === '6') {
+                script = generateROS6Script(priceDisplay, duration, price, telegramToken, telegramChat);
+            } else {
+                script = generateROS7Script(priceDisplay, duration, price, telegramToken, telegramChat);
+            }
+
+            document.getElementById('edit-hp-script').value = script;
+        }
+
+        // Copy script from edit hotspot modal
+        function copyEditHotspotScript() {
+            const script = document.getElementById('edit-hp-script');
+            script.select();
+            document.execCommand('copy');
+            alert('✅ Script copied to clipboard!');
+        }
+
+        // Copy script from Add hotspot modal
+        function copyHotspotScript() {
+            const script = document.getElementById('add-hp-script-preview');
+            script.select();
+            document.execCommand('copy');
+            alert('✅ Script copied to clipboard!');
         }
 
         // Generate On-Login Script

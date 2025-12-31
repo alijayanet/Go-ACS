@@ -626,36 +626,6 @@ try {
             }
             break;
             
-        // ---- UPDATE HOTSPOT USER PROFILE ----
-        case 'update_hotspot_profile':
-            if (empty($input['name'])) {
-                jsonResponse(['success' => false, 'error' => 'Profile name required'], 400);
-            }
-            
-            $result = connectToRouter($routerId);
-            if (isset($result['error'])) {
-                jsonResponse(['success' => false, 'error' => $result['error']], 500);
-            }
-            
-            $api = $result['api'];
-            $success = $api->updateHotspotUserProfile(
-                $input['name'],
-                $input['rate_limit'] ?? '',
-                $input['session_timeout'] ?? '',
-                $input['idle_timeout'] ?? '',
-                $input['shared_users'] ?? '1',
-                $input['on_login'] ?? ''
-            );
-            $error = $api->getError();
-            $api->disconnect();
-            
-            if ($success) {
-                jsonResponse(['success' => true, 'message' => "Hotspot profile '{$input['name']}' updated"]);
-            } else {
-                jsonResponse(['success' => false, 'error' => $error ?: 'Failed to update profile'], 500);
-            }
-            break;
-            
         // ---- ADD HOTSPOT SERVER PROFILE ----
         case 'add_server_profile':
             if (empty($input['name'])) {

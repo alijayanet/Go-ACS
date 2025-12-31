@@ -729,55 +729,6 @@ class MikroTikAPI {
     }
     
     /**
-     * Update hotspot user profile
-     */
-    public function updateHotspotUserProfile($name, $rateLimit = '', $sessionTimeout = '', $idleTimeout = '', $sharedUsers = '1', $onLogin = '') {
-        // First, find the profile ID
-        $profiles = $this->getHotspotProfiles();
-        $profileId = null;
-        
-        foreach ($profiles as $p) {
-            if ($p['name'] === $name) {
-                $profileId = $p['id'];
-                break;
-            }
-        }
-        
-        if (!$profileId) {
-            return false;
-        }
-        
-        $command = [
-            '/ip/hotspot/user/profile/set',
-            '=.id=' . $profileId
-        ];
-        
-        if ($rateLimit !== '') {
-            $command[] = '=rate-limit=' . $rateLimit;
-        }
-        
-        if ($sessionTimeout !== '') {
-            $command[] = '=session-timeout=' . $sessionTimeout;
-        }
-        
-        if ($idleTimeout !== '') {
-            $command[] = '=idle-timeout=' . $idleTimeout;
-        }
-        
-        if ($sharedUsers !== '') {
-            $command[] = '=shared-users=' . $sharedUsers;
-        }
-        
-        if ($onLogin !== '') {
-            $command[] = '=on-login=' . $onLogin;
-        }
-        
-        $response = $this->command($command);
-        
-        return end($response) === '!done';
-    }
-    
-    /**
      * Delete hotspot user profile
      */
     public function deleteHotspotUserProfile($name) {

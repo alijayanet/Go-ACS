@@ -560,7 +560,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const API = `http://${window.location.hostname}:8888/api/billing_api.php`;
+        const API = `${window.location.protocol}//${window.location.hostname}:8888/api/billing_api.php`;
         let revenueChart, packageChart, paymentChart;
 
         function toggleSidebar() {
@@ -578,10 +578,16 @@
             return 'Rp ' + parseInt(amount || 0).toLocaleString('id-ID');
         }
 
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             initCharts();
-            loadDashboardData();
-            document.getElementById('report-period').addEventListener('change', loadDashboardData);
+            loadReportData();
+            document.getElementById('report-period').addEventListener('change', loadReportData);
         });
 
         function initCharts() {
@@ -614,7 +620,11 @@
                             grid: { color: 'rgba(255, 255, 255, 0.05)' },
                             ticks: {
                                 color: 'rgba(255, 255, 255, 0.5)',
-                                callback: (v) => 'Rp ' + (v / 1000000).toFixed(1) + 'jt'
+                                callback: (v) => {
+                                    if (v >= 1000000) return 'Rp ' + (v / 1000000).toFixed(1) + 'jt';
+                                    if (v >= 1000) return 'Rp ' + (v / 1000).toFixed(0) + 'rb';
+                                    return 'Rp ' + v;
+                                }
                             }
                         },
                         x: {
@@ -629,10 +639,10 @@
             packageChart = new Chart(document.getElementById('packageChart').getContext('2d'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['10 Mbps', '20 Mbps', '50 Mbps', '100 Mbps'],
+                    labels: [],
                     datasets: [{
-                        data: [0, 0, 0, 0],
-                        backgroundColor: ['#00f5ff', '#00ff88', '#ff6b35', '#ff00aa'],
+                        data: [],
+                        backgroundColor: ['#00f5ff', '#00ff88', '#ff6b35', '#ff00aa', '#a855f7', '#eab308'],
                         borderWidth: 0,
                         hoverOffset: 15
                     }]
@@ -645,8 +655,8 @@
                             position: 'bottom',
                             labels: {
                                 color: 'rgba(255, 255, 255, 0.7)',
-                                padding: 20,
-                                font: { size: 12 }
+                                padding: 15,
+                                font: { size: 11 }
                             }
                         }
                     },
@@ -658,11 +668,11 @@
             paymentChart = new Chart(document.getElementById('paymentChart').getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: ['Cash', 'Transfer', 'QRIS', 'E-Wallet'],
+                    labels: [],
                     datasets: [{
                         label: 'Transaksi',
-                        data: [0, 0, 0, 0],
-                        backgroundColor: ['#00f5ff', '#ff6b35', '#ff00aa', '#00ff88'],
+                        data: [],
+                        backgroundColor: ['#00f5ff', '#ff6b35', '#ff00aa', '#00ff88', '#a855f7'],
                         borderRadius: 8
                     }]
                 },
@@ -685,57 +695,141 @@
             });
         }
 
-        async function loadDashboardData() {
+        async function loadReportData() {
+            const period = document.getElementById('report-period').value;
+
             try {
-                const response = await fetch(`${API}?action=dashboard`);
+                const response = await fetch(`${API}?action=report_stats&period=${period}`);
                 const result = await response.json();
 
-                if (result.success) {
-                    const stats = result.stats;
-                    document.getElementById('total-revenue').textContent = formatRupiah(stats.monthly_revenue || 0);
-                    document.getElementById('active-customers').textContent = stats.active_customers || 0;
-                    document.getElementById('pending-invoices').textContent = stats.unpaid_invoices || 0;
-                    document.getElementById('total-arrears').textContent = formatRupiah(0);
+                console.log('📊 Report Data:', result);
 
-                    // Update charts with sample data
-                    updateChartsWithData();
+                if (result.success) {
+                    // Log debug info
+                    console.log('📅 Date Range:', result.date_range);
+                    console.log('💰 Summary:', result.summary);
+                    console.log(`📈 Payments in period: ${result.summary.payments_in_period}`);
+                    console.log(`📊 All-time payments: ${result.summary.all_time_payments}`);
+
+                    updateSummaryCards(result.summary);
+                    updateRevenueChart(result.revenue_trend);
+                    updatePackageChart(result.package_distribution);
+                    updatePaymentChart(result.payment_methods);
+                    updateTopPackages(result.top_packages);
+                } else {
+                    console.error('Failed to load report data:', result.error);
+                    showNoData();
                 }
             } catch (e) {
-                console.error('Error loading dashboard:', e);
-                updateChartsWithData();
+                console.error('Error loading report data:', e);
+                showNoData();
             }
         }
 
-        function updateChartsWithData() {
-            const period = document.getElementById('report-period').value;
-            let days = period === 'week' ? 7 : (period === 'month' ? 30 : (period === 'quarter' ? 90 : 365));
+        function updateSummaryCards(summary) {
+            document.getElementById('total-revenue').textContent = formatRupiah(summary.total_revenue);
+            document.getElementById('active-customers').textContent = summary.active_customers || 0;
+            document.getElementById('pending-invoices').textContent = summary.pending_invoices || 0;
+            document.getElementById('total-arrears').textContent = formatRupiah(summary.total_arrears);
+        }
 
-            // Revenue chart
-            const labels = [];
-            const data = [];
-            for (let i = days; i >= 0; i -= Math.ceil(days / 10)) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                labels.push(date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }));
-                data.push(Math.floor(Math.random() * 2000000) + 500000);
+        function updateRevenueChart(revenueTrend) {
+            if (!revenueTrend || revenueTrend.length === 0) {
+                revenueChart.data.labels = ['Tidak ada data'];
+                revenueChart.data.datasets[0].data = [0];
+            } else {
+                const labels = revenueTrend.map(item => formatDate(item.label));
+                const data = revenueTrend.map(item => parseFloat(item.revenue) || 0);
+
+                revenueChart.data.labels = labels;
+                revenueChart.data.datasets[0].data = data;
             }
-            revenueChart.data.labels = labels;
-            revenueChart.data.datasets[0].data = data;
             revenueChart.update();
+        }
 
-            // Package chart
-            packageChart.data.datasets[0].data = [35, 45, 28, 12];
+        function updatePackageChart(packageDistribution) {
+            if (!packageDistribution || packageDistribution.length === 0) {
+                packageChart.data.labels = ['Tidak ada data'];
+                packageChart.data.datasets[0].data = [1];
+            } else {
+                const labels = packageDistribution.map(item => item.package_name);
+                const data = packageDistribution.map(item => parseInt(item.customer_count) || 0);
+
+                packageChart.data.labels = labels;
+                packageChart.data.datasets[0].data = data;
+            }
             packageChart.update();
+        }
 
-            // Payment chart
-            paymentChart.data.datasets[0].data = [42, 35, 18, 25];
+        function updatePaymentChart(paymentMethods) {
+            const methodLabels = {
+                'cash': 'Cash',
+                'transfer': 'Transfer',
+                'qris': 'QRIS',
+                'ewallet': 'E-Wallet',
+                'bank_transfer': 'Transfer Bank'
+            };
+
+            if (!paymentMethods || paymentMethods.length === 0) {
+                paymentChart.data.labels = ['Tidak ada data'];
+                paymentChart.data.datasets[0].data = [0];
+            } else {
+                const labels = paymentMethods.map(item => methodLabels[item.method] || item.method);
+                const data = paymentMethods.map(item => parseInt(item.count) || 0);
+
+                paymentChart.data.labels = labels;
+                paymentChart.data.datasets[0].data = data;
+            }
             paymentChart.update();
+        }
 
-            // Top packages table
+        function updateTopPackages(topPackages) {
+            const tbody = document.querySelector('#top-packages tbody');
+
+            if (!topPackages || topPackages.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="2" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox"></i> Belum ada data pembayaran
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const rankClasses = ['rank-1', 'rank-2', 'rank-3'];
+
+            tbody.innerHTML = topPackages.map((pkg, index) => {
+                const rankClass = rankClasses[index] || '';
+                return `
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge-rank ${rankClass}">${index + 1}</span>
+                                <div>
+                                    <strong>${pkg.package_name}</strong>
+                                    <small class="d-block text-muted">${pkg.customer_count} pelanggan</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-end fw-bold">${formatRupiah(pkg.total_revenue)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showNoData() {
+            document.getElementById('total-revenue').textContent = 'Rp 0';
+            document.getElementById('active-customers').textContent = '0';
+            document.getElementById('pending-invoices').textContent = '0';
+            document.getElementById('total-arrears').textContent = 'Rp 0';
+
             document.querySelector('#top-packages tbody').innerHTML = `
-                <tr><td><div class="d-flex align-items-center gap-3"><span class="badge-rank rank-1">1</span><div><strong>Standard 20 Mbps</strong><small class="d-block text-muted">45 pelanggan</small></div></div></td><td class="text-end fw-bold">Rp 9.000.000</td></tr>
-                <tr><td><div class="d-flex align-items-center gap-3"><span class="badge-rank rank-2">2</span><div><strong>Premium 50 Mbps</strong><small class="d-block text-muted">28 pelanggan</small></div></div></td><td class="text-end fw-bold">Rp 9.800.000</td></tr>
-                <tr><td><div class="d-flex align-items-center gap-3"><span class="badge-rank rank-3">3</span><div><strong>Basic 10 Mbps</strong><small class="d-block text-muted">35 pelanggan</small></div></div></td><td class="text-end fw-bold">Rp 5.250.000</td></tr>
+                <tr>
+                    <td colspan="2" class="text-center text-muted py-4">
+                        <i class="fas fa-exclamation-circle"></i> Gagal memuat data
+                    </td>
+                </tr>
             `;
         }
 

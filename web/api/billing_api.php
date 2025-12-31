@@ -761,6 +761,140 @@ try {
             
             jsonResponse(['success' => true, 'transactions' => $transactions]);
             break;
+
+        // ========== REPORT STATISTICS ==========
+        case 'report_stats':
+            $period = $_GET['period'] ?? 'month';
+            
+            // Determine date range based on period
+            $endDate = date('Y-m-d 23:59:59'); // Include all of today
+            switch ($period) {
+                case 'week':
+                    $startDate = date('Y-m-d 00:00:00', strtotime('-7 days'));
+                    $groupBy = 'DATE(payment_date)';
+                    $dateFormat = '%Y-%m-%d';
+                    break;
+                case 'quarter':
+                    $startDate = date('Y-m-d 00:00:00', strtotime('-3 months'));
+                    $groupBy = 'DATE_FORMAT(payment_date, "%Y-%m")';
+                    $dateFormat = '%Y-%m';
+                    break;
+                case 'year':
+                    $startDate = date('Y-m-d 00:00:00', strtotime('-1 year'));
+                    $groupBy = 'DATE_FORMAT(payment_date, "%Y-%m")';
+                    $dateFormat = '%Y-%m';
+                    break;
+                default: // month - current month (1st to today)
+                    $startDate = date('Y-m-01 00:00:00');
+                    $groupBy = 'DATE(payment_date)';
+                    $dateFormat = '%Y-%m-%d';
+            }
+            
+            // 1. Total Revenue in period - also check total payments count
+            $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count FROM payments WHERE payment_date >= ? AND payment_date <= ?");
+            $stmt->execute([$startDate, $endDate]);
+            $revenueResult = $stmt->fetch();
+            $totalRevenue = (float)$revenueResult['total'];
+            $totalPaymentsCount = (int)$revenueResult['count'];
+            
+            // Also get ALL TIME revenue for comparison
+            $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count FROM payments");
+            $allTimeResult = $stmt->fetch();
+            $allTimeRevenue = (float)$allTimeResult['total'];
+            $allTimePaymentsCount = (int)$allTimeResult['count'];
+            
+            // 2. Active customers
+            $stmt = $pdo->query("SELECT COUNT(*) as total FROM customers WHERE status = 'active'");
+            $activeCustomers = (int)$stmt->fetch()['total'];
+            
+            // 3. Pending invoices (unpaid)
+            $stmt = $pdo->query("SELECT COUNT(*) as total FROM invoices WHERE status IN ('sent', 'draft')");
+            $pendingInvoices = (int)$stmt->fetch()['total'];
+            
+            // 4. Total Arrears (unpaid invoice amounts)
+            $stmt = $pdo->query("SELECT COALESCE(SUM(total - paid_amount), 0) as total FROM invoices WHERE status IN ('sent', 'overdue', 'draft')");
+            $totalArrears = (float)$stmt->fetch()['total'];
+            
+            // 5. Revenue trend data
+            $stmt = $pdo->prepare("
+                SELECT 
+                    {$groupBy} as date_group,
+                    DATE_FORMAT(payment_date, '{$dateFormat}') as label,
+                    SUM(amount) as revenue
+                FROM payments 
+                WHERE payment_date BETWEEN ? AND ?
+                GROUP BY date_group, label
+                ORDER BY date_group ASC
+            ");
+            $stmt->execute([$startDate, $endDate]);
+            $revenueTrend = $stmt->fetchAll();
+            
+            // 6. Package distribution (customers per package)
+            $stmt = $pdo->query("
+                SELECT 
+                    COALESCE(p.name, 'Tanpa Paket') as package_name,
+                    COUNT(c.id) as customer_count
+                FROM customers c
+                LEFT JOIN packages p ON c.package_id = p.id
+                WHERE c.status = 'active'
+                GROUP BY p.id, p.name
+                ORDER BY customer_count DESC
+                LIMIT 10
+            ");
+            $packageDistribution = $stmt->fetchAll();
+            
+            // 7. Payment methods breakdown
+            $stmt = $pdo->prepare("
+                SELECT 
+                    COALESCE(payment_method, 'cash') as method,
+                    COUNT(*) as count,
+                    SUM(amount) as total
+                FROM payments
+                WHERE payment_date BETWEEN ? AND ?
+                GROUP BY payment_method
+                ORDER BY count DESC
+            ");
+            $stmt->execute([$startDate, $endDate]);
+            $paymentMethods = $stmt->fetchAll();
+            
+            // 8. Top packages by revenue
+            $stmt = $pdo->prepare("
+                SELECT 
+                    COALESCE(pkg.name, 'Tanpa Paket') as package_name,
+                    COUNT(DISTINCT c.id) as customer_count,
+                    SUM(p.amount) as total_revenue
+                FROM payments p
+                JOIN customers c ON p.customer_id = c.id
+                LEFT JOIN packages pkg ON c.package_id = pkg.id
+                WHERE p.payment_date BETWEEN ? AND ?
+                GROUP BY pkg.id, pkg.name
+                ORDER BY total_revenue DESC
+                LIMIT 5
+            ");
+            $stmt->execute([$startDate, $endDate]);
+            $topPackages = $stmt->fetchAll();
+            
+            jsonResponse([
+                'success' => true,
+                'period' => $period,
+                'date_range' => ['start' => $startDate, 'end' => $endDate],
+                'summary' => [
+                    'total_revenue' => $totalRevenue,
+                    'active_customers' => $activeCustomers,
+                    'pending_invoices' => $pendingInvoices,
+                    'total_arrears' => $totalArrears,
+                    // Debug info
+                    'payments_in_period' => $totalPaymentsCount,
+                    'all_time_payments' => $allTimePaymentsCount,
+                    'all_time_revenue' => $allTimeRevenue
+                ],
+                'revenue_trend' => $revenueTrend,
+                'package_distribution' => $packageDistribution,
+                'payment_methods' => $paymentMethods,
+                'top_packages' => $topPackages
+            ]);
+            break;
+            
             
         default:
             jsonResponse([
