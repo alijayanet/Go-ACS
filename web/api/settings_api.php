@@ -42,7 +42,10 @@ function loadSettings() {
             'timezone' => 'Asia/Jakarta',
             'currency' => 'IDR',
             'date_format' => 'd/m/Y',
-            'language' => 'id'
+            'language' => 'id',
+            'address' => '',
+            'phone' => '',
+            'email' => ''
         ],
         'acs' => [
             'api_url' => 'http://localhost:7547',
@@ -226,6 +229,15 @@ try {
                 'admin' => $admin,
                 'env' => $env,
                 'system' => $system
+            ]);
+            break;
+        
+        // ---- GET ALL SETTINGS (for Invoice/Print - no sensitive data hidden) ----
+        case 'get_all':
+            $settings = loadSettings();
+            jsonResponse([
+                'success' => true,
+                'settings' => $settings
             ]);
             break;
             
