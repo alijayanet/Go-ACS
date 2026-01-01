@@ -362,7 +362,7 @@ if ($method === 'POST') {
         }
         
         $serialNumber = $data['serial_number'];
-        $username = $data['username'] ?? 'admin_tagged'; // Default username for admin tags
+        $username = $data['username'] ?? $serialNumber; // Use serial number as default username for admin tags
         $password = $data['password'] ?? null;
         $latitude = (float)$data['latitude'];
         $longitude = (float)$data['longitude'];

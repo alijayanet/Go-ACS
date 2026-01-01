@@ -8,7 +8,7 @@
 
     <!-- Security Headers -->
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.google.com http://*.google.com; connect-src 'self' http://*:*:8888 https://*.openstreetmap.org https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com http://*.google.com;">
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; img-src 'self' data: https://*.openstreetmap.org https://*.tile.openstreetmap.org https://*.google.com http://*.google.com; connect-src 'self' http://*:8888 http://*:7547 https://*.openstreetmap.org https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.google.com http://*.google.com;">
 
     <!-- Bootstrap 5 & Font Awesome -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -378,7 +378,7 @@
 
     <!-- Add Location Modal -->
     <div class="modal fade" id="addLocationModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -392,35 +392,38 @@
                             <label class="form-label">Serial Number</label>
                             <input type="text" class="form-control" id="location-sn" readonly>
                         </div>
+
+                        <!-- Map Picker -->
+                        <h6 class="mb-2"><i class="fas fa-map-marker-alt me-2"></i>Klik peta untuk memilih lokasi</h6>
+                        <div id="modal-map"
+                            style="height: 280px; border-radius: 10px; border: 2px solid var(--border-color); margin-bottom: 15px;">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Latitude <span class="text-danger">*</span></label>
+                                <input type="number" step="any" class="form-control" id="location-lat" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Longitude <span class="text-danger">*</span></label>
+                                <input type="number" step="any" class="form-control" id="location-lng" required>
+                            </div>
+                        </div>
+
                         <hr>
-                        <h6 class="mb-3"><i class="fas fa-user-lock me-2"></i>Customer Login Credentials</h6>
+                        <h6 class="mb-3"><i class="fas fa-user-lock me-2"></i>Customer Login Credentials <span
+                                class="badge bg-secondary">Optional</span></h6>
                         <div class="mb-3">
                             <label class="form-label"><i class="fas fa-user me-1"></i>Username</label>
                             <input type="text" class="form-control" id="location-name"
-                                placeholder="e.g., customer_username" required>
-                            <small class="text-muted">Username untuk login pelanggan ke portal</small>
+                                placeholder="e.g., customer_username">
+                            <small class="text-muted">Username untuk login pelanggan ke portal (opsional)</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label"><i class="fas fa-lock me-1"></i>Password</label>
                             <input type="password" class="form-control" id="location-password"
-                                placeholder="Minimal 6 karakter" required>
-                            <small class="text-muted">Password untuk login pelanggan ke portal</small>
-                        </div>
-                        <hr>
-                        <h6 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>Location Coordinates</h6>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Latitude</label>
-                                <input type="number" step="any" class="form-control" id="location-lat" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Longitude</label>
-                                <input type="number" step="any" class="form-control" id="location-lng" required>
-                            </div>
-                        </div>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            Click on the map to get coordinates automatically!
+                                placeholder="Minimal 6 karakter">
+                            <small class="text-muted">Password untuk login pelanggan ke portal (opsional)</small>
                         </div>
                     </form>
                 </div>
@@ -505,6 +508,8 @@
         let addLocationModal;
         let unmappedModal;
         let selectedDevice = null;
+        let modalMap = null;
+        let modalMarker = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -519,6 +524,11 @@
             // Initialize modals
             addLocationModal = new bootstrap.Modal(document.getElementById('addLocationModal'));
             unmappedModal = new bootstrap.Modal(document.getElementById('unmappedModal'));
+
+            // Add event listener to initialize modal map when shown
+            document.getElementById('addLocationModal').addEventListener('shown.bs.modal', function () {
+                initModalMap();
+            });
 
             // Initialize map
             initMap();
@@ -1157,6 +1167,69 @@
             addLocationModal.show();
         }
 
+        // Modal Map Functions
+        function initModalMap() {
+            // Destroy existing map if any
+            if (modalMap) {
+                modalMap.remove();
+                modalMap = null;
+            }
+
+            // Get existing coordinates if any
+            const existingLat = parseFloat(document.getElementById('location-lat').value);
+            const existingLng = parseFloat(document.getElementById('location-lng').value);
+            const hasExisting = !isNaN(existingLat) && !isNaN(existingLng);
+
+            // Initialize map (centered on existing location or Indonesia)
+            const centerLat = hasExisting ? existingLat : -2.5489;
+            const centerLng = hasExisting ? existingLng : 118.0149;
+            const zoomLevel = hasExisting ? 15 : 5;
+
+            modalMap = L.map('modal-map').setView([centerLat, centerLng], zoomLevel);
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(modalMap);
+
+            // Add click event to set marker
+            modalMap.on('click', function (e) {
+                setModalMarker(e.latlng.lat, e.latlng.lng);
+            });
+
+            // Set marker if existing location
+            if (hasExisting) {
+                setModalMarker(existingLat, existingLng);
+            }
+
+            // Fix map size
+            setTimeout(() => {
+                modalMap.invalidateSize();
+            }, 100);
+        }
+
+        function setModalMarker(lat, lng) {
+            // Remove existing marker
+            if (modalMarker) {
+                modalMap.removeLayer(modalMarker);
+            }
+
+            // Add new marker
+            modalMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background-color: #28a745; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                })
+            }).addTo(modalMap);
+
+            // Update form fields
+            document.getElementById('location-lat').value = lat.toFixed(6);
+            document.getElementById('location-lng').value = lng.toFixed(6);
+        }
+
         async function saveLocation() {
             const sn = document.getElementById('location-sn').value;
             const username = document.getElementById('location-name').value.trim();
@@ -1164,42 +1237,57 @@
             const lat = parseFloat(document.getElementById('location-lat').value);
             const lng = parseFloat(document.getElementById('location-lng').value);
 
-            // Validation
-            if (!username) {
-                alert('Username is required!');
+            // Validation - Only coordinates are required
+            if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+                alert('Koordinat wajib diisi! Klik pada peta.');
                 return;
             }
 
-            if (!onuLocations[sn] && (!password || password.length < 6)) {
-                alert('Password must be at least 6 characters!');
+            if (lat < -90 || lat > 90) {
+                alert('Latitude harus antara -90 dan 90');
                 return;
             }
 
-            if (!lat || !lng) {
-                alert('Please enter valid coordinates!');
+            if (lng < -180 || lng > 180) {
+                alert('Longitude harus antara -180 dan 180');
+                return;
+            }
+
+            // Optional: validate password if provided
+            if (password && password.length > 0 && password.length < 6) {
+                alert('Password minimal 6 karakter jika diisi!');
                 return;
             }
 
             try {
-                // Save to PHP Customer API (with username and password)
+                // Build request body - only include username/password if provided
+                const requestBody = {
+                    serial_number: sn,
+                    latitude: lat,
+                    longitude: lng,
+                    admin_tag: true  // Flag: tagged by admin, not customer
+                };
+
+                if (username) {
+                    requestBody.username = username;
+                }
+                if (password) {
+                    requestBody.password = password;
+                }
+
+                // Save to PHP Customer API
                 const response = await fetch(CUSTOMER_API_BASE, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         ...getHeaders()
                     },
-                    body: JSON.stringify({
-                        serial_number: sn,
-                        username: username,
-                        password: password || undefined, // Only send if provided
-                        latitude: lat,
-                        longitude: lng
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (response.ok) {
                     // Also save to local storage for offline use
-                    onuLocations[sn] = { name: username, lat, lng };
+                    onuLocations[sn] = { name: username || sn, lat, lng };
                     saveOnuLocations();
 
                     // Update map
@@ -1210,16 +1298,20 @@
                     addLocationModal.hide();
                     selectedDevice = null;
 
-                    alert('✅ Location saved successfully!\nCustomer can now login with the credentials.');
+                    let msg = `✅ Lokasi berhasil disimpan!\n\nSerial: ${sn}\nKoordinat: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    if (username) {
+                        msg += `\n\nCustomer dapat login dengan username: ${username}`;
+                    }
+                    alert(msg);
                 } else {
                     const error = await response.json();
-                    alert('❌ Failed to save: ' + (error.message || 'Unknown error'));
+                    alert('❌ Gagal menyimpan: ' + (error.message || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error saving location:', error);
 
                 // Fallback: save to localStorage only
-                onuLocations[sn] = { name: username, lat, lng };
+                onuLocations[sn] = { name: username || sn, lat, lng };
                 saveOnuLocations();
 
                 updateMap();
@@ -1227,7 +1319,7 @@
                 addLocationModal.hide();
                 selectedDevice = null;
 
-                alert('⚠️ Saved locally (API unavailable). Customer login may not work until synced.');
+                alert(`⚠️ Disimpan secara lokal (API tidak tersedia)\n\nSerial: ${sn}\nKoordinat: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
             }
         }
 
