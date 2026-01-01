@@ -862,13 +862,15 @@
         }
 
         // ========== PRINT INVOICE FUNCTIONS ==========
+        const SETTINGS_API = `http://${window.location.hostname}:8888/api/settings_api.php`;
         let ispSettings = null;
 
         async function loadIspSettings() {
-            if (ispSettings) return ispSettings;
+            // Always reload to get fresh data
             try {
-                const response = await fetch('/api/settings_api.php?action=get_all');
+                const response = await fetch(`${SETTINGS_API}?action=get_all`);
                 const result = await response.json();
+                console.log('Settings API response:', result);
                 if (result.success && result.settings) {
                     ispSettings = {
                         company_name: result.settings.general?.company_name || 'My ISP',
@@ -877,6 +879,10 @@
                         phone: result.settings.general?.phone || '',
                         email: result.settings.general?.email || ''
                     };
+                    console.log('ISP Settings loaded:', ispSettings);
+                } else {
+                    console.error('Failed to load settings:', result);
+                    ispSettings = { company_name: 'My ISP', site_name: 'ACS-Lite' };
                 }
             } catch (e) {
                 console.error('Error loading ISP settings:', e);
