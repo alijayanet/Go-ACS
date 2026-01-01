@@ -331,6 +331,28 @@
                                 </div>
                             </div>
 
+                            <hr class="my-4">
+                            <h6 class="mb-3"><i class="fas fa-building me-2"></i>Company Information (untuk Invoice)
+                            </h6>
+
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label class="form-label">Address</label>
+                                    <input type="text" class="form-control" id="general-address"
+                                        placeholder="Jl. Contoh No. 123, Kota, Provinsi">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Phone</label>
+                                    <input type="text" class="form-control" id="general-phone"
+                                        placeholder="0812-3456-7890">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="general-email"
+                                        placeholder="admin@isp-anda.com">
+                                </div>
+                            </div>
+
                             <button type="button" class="btn btn-save" onclick="saveGeneral()">
                                 <i class="fas fa-save me-2"></i>Save Settings
                             </button>
@@ -876,7 +898,7 @@
         // ========== SAVE FUNCTIONS ==========
 
         async function saveGeneral() {
-            const data = collectFormData('general', ['site_name', 'company_name', 'timezone', 'currency', 'date_format']);
+            const data = collectFormData('general', ['site_name', 'company_name', 'timezone', 'currency', 'date_format', 'address', 'phone', 'email']);
             await saveSection('save_general', { general: data });
         }
 

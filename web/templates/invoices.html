@@ -168,6 +168,50 @@
             color: var(--bg-primary);
         }
 
+        .btn-action.primary {
+            background: rgba(14, 165, 233, 0.1);
+            border-color: #0ea5e9;
+            color: #0ea5e9;
+        }
+
+        .btn-action.primary:hover {
+            background: #0ea5e9;
+            color: white;
+        }
+
+        .btn-action.warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+
+        .btn-action.warning:hover {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-action.success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        .btn-action.success:hover {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-action.danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .btn-action.danger:hover {
+            background: #ef4444;
+            color: white;
+        }
+
         .filter-bar {
             display: flex;
             gap: 10px;
@@ -684,6 +728,8 @@
                         <td class="text-end fw-bold">${formatRupiah(inv.total)}</td>
                         <td><span class="status-badge ${statusClass}"><i class="fas fa-${statusIcon}"></i> ${statusText}</span></td>
                         <td class="text-end">
+                            <button class="btn-action primary" onclick="printInvoice(${inv.id})" title="Print A4"><i class="fas fa-print"></i></button>
+                            <button class="btn-action warning" onclick="printInvoiceThermal(${inv.id})" title="Print Thermal 58mm"><i class="fas fa-receipt"></i></button>
                             ${inv.status !== 'paid' ? `<button class="btn-action success" onclick="openPaymentModal(${inv.id}, '${inv.invoice_no}', ${inv.total})" title="Bayar"><i class="fas fa-money-bill-wave"></i></button>` : ''}
                             <button class="btn-action danger" onclick="deleteInvoice(${inv.id})" title="Hapus"><i class="fas fa-trash"></i></button>
                         </td>
@@ -813,6 +859,289 @@
             } catch (e) {
                 alert(`❌ Error: ${e.message}`);
             }
+        }
+
+        // ========== PRINT INVOICE FUNCTIONS ==========
+        let ispSettings = null;
+
+        async function loadIspSettings() {
+            if (ispSettings) return ispSettings;
+            try {
+                const response = await fetch('/api/settings_api.php?action=get_all');
+                const result = await response.json();
+                if (result.success && result.settings) {
+                    ispSettings = {
+                        company_name: result.settings.general?.company_name || 'My ISP',
+                        site_name: result.settings.general?.site_name || 'ACS-Lite',
+                        address: result.settings.general?.address || '',
+                        phone: result.settings.general?.phone || '',
+                        email: result.settings.general?.email || ''
+                    };
+                }
+            } catch (e) {
+                console.error('Error loading ISP settings:', e);
+                ispSettings = { company_name: 'My ISP', site_name: 'ACS-Lite' };
+            }
+            return ispSettings;
+        }
+
+        async function printInvoice(invoiceId) {
+            const invoice = allInvoices.find(inv => inv.id == invoiceId);
+            if (!invoice) {
+                alert('Invoice tidak ditemukan');
+                return;
+            }
+            await loadIspSettings();
+            openInvoicePrintWindow(invoice, 'a4');
+        }
+
+        async function printInvoiceThermal(invoiceId) {
+            const invoice = allInvoices.find(inv => inv.id == invoiceId);
+            if (!invoice) {
+                alert('Invoice tidak ditemukan');
+                return;
+            }
+            await loadIspSettings();
+            openInvoicePrintWindow(invoice, 'thermal');
+        }
+
+        function openInvoicePrintWindow(invoice, format) {
+            const printWindow = window.open('', '_blank');
+            const html = format === 'thermal' ? generateThermalInvoiceHTML(invoice) : generateA4InvoiceHTML(invoice);
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 500);
+        }
+
+        function generateA4InvoiceHTML(inv) {
+            const isp = ispSettings || { company_name: 'My ISP' };
+            const statusText = inv.status === 'paid' ? 'LUNAS' : (inv.status === 'overdue' ? 'JATUH TEMPO' : 'BELUM BAYAR');
+            const statusColor = inv.status === 'paid' ? '#10b981' : (inv.status === 'overdue' ? '#ef4444' : '#f59e0b');
+
+            return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice ${inv.invoice_no}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #0ea5e9; padding-bottom: 20px; }
+        .company-info h1 { font-size: 28px; color: #0ea5e9; margin-bottom: 5px; }
+        .company-info p { font-size: 13px; color: #666; }
+        .invoice-title { text-align: right; }
+        .invoice-title h2 { font-size: 32px; color: #333; letter-spacing: 2px; }
+        .invoice-title .invoice-no { font-size: 16px; color: #666; margin-top: 5px; }
+        .invoice-title .status { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 12px; margin-top: 10px; color: white; background: ${statusColor}; }
+        .details { display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .detail-box { flex: 1; }
+        .detail-box h4 { font-size: 12px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .detail-box p { font-size: 14px; margin-bottom: 3px; }
+        .detail-box .name { font-size: 18px; font-weight: 600; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        thead th { background: #f8fafc; padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #666; border-bottom: 2px solid #e2e8f0; }
+        tbody td { padding: 15px; border-bottom: 1px solid #e2e8f0; }
+        .text-right { text-align: right; }
+        .total-section { background: #f8fafc; padding: 20px; border-radius: 8px; }
+        .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
+        .total-row.grand { font-size: 20px; font-weight: bold; color: #0ea5e9; border-top: 2px solid #e2e8f0; padding-top: 15px; margin-top: 10px; }
+        .footer { margin-top: 40px; text-align: center; color: #999; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+        .notes { background: #fef3c7; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 13px; }
+        .notes strong { color: #b45309; }
+        @media print {
+            body { padding: 20px; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-info">
+            <h1>${isp.company_name}</h1>
+            ${isp.address ? `<p>${isp.address}</p>` : ''}
+            ${isp.phone ? `<p>📞 ${isp.phone}</p>` : ''}
+            ${isp.email ? `<p>✉️ ${isp.email}</p>` : ''}
+        </div>
+        <div class="invoice-title">
+            <h2>INVOICE</h2>
+            <div class="invoice-no">${inv.invoice_no}</div>
+            <div class="status">${statusText}</div>
+        </div>
+    </div>
+
+    <div class="details">
+        <div class="detail-box">
+            <h4>Tagihan Untuk</h4>
+            <p class="name">${inv.customer_name || '-'}</p>
+            <p>${inv.customer_code || ''}</p>
+        </div>
+        <div class="detail-box text-right">
+            <h4>Detail Invoice</h4>
+            <p><strong>Tanggal:</strong> ${formatDate(inv.created_at || inv.period_start)}</p>
+            <p><strong>Periode:</strong> ${formatDate(inv.period_start)} - ${formatDate(inv.period_end)}</p>
+            <p><strong>Jatuh Tempo:</strong> ${formatDate(inv.due_date)}</p>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Deskripsi</th>
+                <th class="text-right">Jumlah</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Biaya Langganan Internet<br><small style="color:#666;">Periode: ${formatDate(inv.period_start)} - ${formatDate(inv.period_end)}</small></td>
+                <td class="text-right">${formatRupiah(inv.subtotal || inv.total)}</td>
+            </tr>
+            ${inv.discount && inv.discount > 0 ? `
+            <tr>
+                <td>Diskon</td>
+                <td class="text-right" style="color:#10b981;">-${formatRupiah(inv.discount)}</td>
+            </tr>
+            ` : ''}
+        </tbody>
+    </table>
+
+    <div class="total-section">
+        <div class="total-row">
+            <span>Subtotal</span>
+            <span>${formatRupiah(inv.subtotal || inv.total)}</span>
+        </div>
+        ${inv.discount && inv.discount > 0 ? `
+        <div class="total-row">
+            <span>Diskon</span>
+            <span style="color:#10b981;">-${formatRupiah(inv.discount)}</span>
+        </div>
+        ` : ''}
+        <div class="total-row grand">
+            <span>TOTAL</span>
+            <span>${formatRupiah(inv.total)}</span>
+        </div>
+    </div>
+
+    ${inv.notes ? `
+    <div class="notes">
+        <strong>Catatan:</strong> ${inv.notes}
+    </div>
+    ` : ''}
+
+    <div class="footer">
+        <p>Terima kasih telah menjadi pelanggan kami.</p>
+        <p>Invoice ini dicetak oleh sistem ${isp.site_name || 'ACS-Lite'}</p>
+    </div>
+</body>
+</html>
+            `;
+        }
+
+        function generateThermalInvoiceHTML(inv) {
+            const isp = ispSettings || { company_name: 'My ISP' };
+            const statusText = inv.status === 'paid' ? 'LUNAS' : (inv.status === 'overdue' ? 'JATUH TEMPO' : 'BELUM BAYAR');
+
+            return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice ${inv.invoice_no}</title>
+    <style>
+        @page { size: 58mm auto; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Courier New', monospace; font-size: 12px; width: 58mm; background: #fff; color: #000; padding: 5px; }
+        .receipt { width: 100%; }
+        .header { text-align: center; margin-bottom: 8px; }
+        .brand { font-size: 14px; font-weight: bold; }
+        .tagline { font-size: 10px; color: #555; }
+        .divider { text-align: center; font-size: 10px; color: #888; margin: 5px 0; overflow: hidden; }
+        .invoice-no { text-align: center; font-size: 11px; margin: 5px 0; }
+        .invoice-no strong { font-size: 13px; }
+        .status { text-align: center; padding: 3px 8px; font-size: 11px; font-weight: bold; margin: 5px auto; display: block; width: fit-content; border: 1px dashed #333; }
+        .info-row { display: flex; justify-content: space-between; font-size: 10px; padding: 2px 0; }
+        .info-row .label { color: #555; }
+        .info-row .value { font-weight: bold; text-align: right; max-width: 55%; }
+        .customer-box { text-align: center; padding: 5px; margin: 5px 0; background: #f5f5f5; border: 1px dashed #999; }
+        .customer-name { font-size: 12px; font-weight: bold; }
+        .customer-id { font-size: 10px; color: #666; }
+        .item-row { font-size: 10px; padding: 3px 0; border-bottom: 1px dotted #ccc; }
+        .total-box { background: #f0f0f0; padding: 8px 5px; margin: 8px 0; text-align: center; }
+        .total-label { font-size: 10px; color: #666; }
+        .total-value { font-size: 16px; font-weight: bold; }
+        .footer { text-align: center; font-size: 9px; color: #666; margin-top: 8px; padding-top: 5px; border-top: 1px dashed #ccc; }
+        .cut-line { text-align: center; font-size: 10px; color: #999; margin-top: 10px; }
+        @media print { body { width: 58mm; } }
+    </style>
+</head>
+<body>
+    <div class="receipt">
+        <div class="header">
+            <div class="brand">${isp.company_name}</div>
+            <div class="tagline">Invoice Tagihan</div>
+        </div>
+        
+        <div class="divider">================================</div>
+        
+        <div class="invoice-no">
+            No: <strong>${inv.invoice_no}</strong>
+        </div>
+        
+        <div class="status">${statusText}</div>
+        
+        <div class="divider">--------------------------------</div>
+        
+        <div class="customer-box">
+            <div class="customer-name">${inv.customer_name || '-'}</div>
+            <div class="customer-id">${inv.customer_code || ''}</div>
+        </div>
+        
+        <div class="divider">--------------------------------</div>
+        
+        <div class="info-row">
+            <span class="label">Periode:</span>
+            <span class="value">${formatDateShort(inv.period_start)} - ${formatDateShort(inv.period_end)}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Jatuh Tempo:</span>
+            <span class="value">${formatDateShort(inv.due_date)}</span>
+        </div>
+        
+        <div class="divider">--------------------------------</div>
+        
+        <div class="item-row">
+            <div>Biaya Internet</div>
+            <div style="text-align:right;">${formatRupiah(inv.subtotal || inv.total)}</div>
+        </div>
+        ${inv.discount && inv.discount > 0 ? `
+        <div class="item-row">
+            <div>Diskon</div>
+            <div style="text-align:right;">-${formatRupiah(inv.discount)}</div>
+        </div>
+        ` : ''}
+        
+        <div class="total-box">
+            <div class="total-label">TOTAL TAGIHAN</div>
+            <div class="total-value">${formatRupiah(inv.total)}</div>
+        </div>
+        
+        <div class="divider">================================</div>
+        
+        <div class="footer">
+            <p>Terima kasih atas kepercayaan Anda</p>
+            <p>${isp.site_name || 'ACS-Lite'}</p>
+        </div>
+        
+        <div class="cut-line">- - - ✂ - - -</div>
+    </div>
+</body>
+</html>
+            `;
+        }
+
+        function formatDateShort(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
         }
 
         function logout() {
