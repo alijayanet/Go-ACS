@@ -121,11 +121,35 @@ function sendTelegramNotification($message, $silent = true) {
 }
 
 /**
+ * Get server IP address
+ */
+function getServerIP() {
+    // Try $_SERVER first
+    if (!empty($_SERVER['SERVER_ADDR'])) {
+        return $_SERVER['SERVER_ADDR'];
+    }
+    
+    // Try hostname command
+    $ip = @shell_exec("hostname -I 2>/dev/null | awk '{print $1}'");
+    if ($ip) {
+        return trim($ip);
+    }
+    
+    // Try ip command
+    $ip = @shell_exec("ip route get 1 2>/dev/null | awk '{print $7;exit}'");
+    if ($ip) {
+        return trim($ip);
+    }
+    
+    return gethostbyname(gethostname()) ?: 'Unknown';
+}
+
+/**
  * Format update notification message
  */
 function formatUpdateNotification($type, $details = []) {
     $hostname = gethostname() ?: 'Unknown';
-    $serverIP = $_SERVER['SERVER_ADDR'] ?? 'Unknown';
+    $serverIP = getServerIP();
     $time = date('Y-m-d H:i:s');
     
     if ($type === 'start') {
@@ -431,9 +455,19 @@ function copyWebDirectory($extractedPath) {
     // Count files
     $filesCopied = 0;
     $errors = [];
+    $skipped = 0;
+    
+    // Files/patterns to protect (not overwrite)
+    $protectedFiles = [
+        '.credentials.php',
+        'admin.json',
+        'mikrotik.json', 
+        'config.json',
+        '.htaccess'
+    ];
     
     // Recursive copy function
-    $copyRecursive = function($src, $dst) use (&$copyRecursive, &$filesCopied, &$errors) {
+    $copyRecursive = function($src, $dst) use (&$copyRecursive, &$filesCopied, &$errors, &$skipped, $protectedFiles) {
         if (!is_dir($dst)) {
             @mkdir($dst, 0755, true);
         }
@@ -449,6 +483,13 @@ function copyWebDirectory($extractedPath) {
             if (is_dir($srcPath)) {
                 $copyRecursive($srcPath, $dstPath);
             } else {
+                // Check if file is protected and already exists
+                if (in_array($file, $protectedFiles) && file_exists($dstPath)) {
+                    logUpdate("Skipping protected file: $file");
+                    $skipped++;
+                    continue;
+                }
+                
                 if (@copy($srcPath, $dstPath)) {
                     $filesCopied++;
                 } else {
