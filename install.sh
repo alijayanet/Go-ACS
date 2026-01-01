@@ -643,14 +643,14 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo "------------------------------------------"
     echo ""
     echo "📍 Main Application (Go Server - Port 7547):"
-    echo "   Admin Panel:     http://$SERVER_IP:7547/web/templates/index.html"
-    echo "   Admin Login:     http://$SERVER_IP:7547/web/templates/login.html"
-    echo "   Map View:        http://$SERVER_IP:7547/web/templates/map.html"
-    echo "   Database Admin:  http://$SERVER_IP:7547/web/templates/db_admin.html"
-    echo "   Data Viewer:     http://$SERVER_IP:7547/web/templates/check_database.html"
+    echo "   Admin Panel:     http://$SERVER_IP:7547/web/index.html"
+    echo "   Admin Login:     http://$SERVER_IP:7547/web/login.html"
+    echo "   Dashboard:       http://$SERVER_IP:7547/web/dashboard.html"
+    echo "   Map View:        http://$SERVER_IP:7547/web/map.html"
+    echo "   Database Admin:  http://$SERVER_IP:7547/web/db_admin.html"
     echo ""
-    echo "📍 Customer Portal (PHP API - Port 8888):"
-    echo "   Customer Login: http://$SERVER_IP:7547/web/templates/customer_login.html"
+    echo "📍 Customer Portal:"
+    echo "   Customer Login:  http://$SERVER_IP:7547/web/customer_login.html"
     echo "   API Status: $PHP_STATUS"
     echo ""
     echo "📍 Admin Credentials:"
@@ -677,9 +677,9 @@ if systemctl is-active --quiet $SERVICE_NAME; then
 💻 Hostname: $(hostname)
 
 🌐 <b>Access URLs:</b>
-• Admin Panel: http://${SERVER_IP}:7547/web/templates/index.html
-• Admin Login: http://${SERVER_IP}:7547/web/templates/login.html
-• Customer Portal: http://${SERVER_IP}:7547/web/templates/customer_login.html
+• Admin Login: http://${SERVER_IP}:7547/web/login.html
+• Dashboard: http://${SERVER_IP}:7547/web/dashboard.html
+• Customer Portal: http://${SERVER_IP}:7547/web/customer_login.html
 
 🔐 <b>Admin Credentials:</b>
 • Username: ${ADMIN_USER}
