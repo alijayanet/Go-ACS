@@ -766,31 +766,35 @@ try {
         case 'report_stats':
             $period = $_GET['period'] ?? 'month';
             
-            // Determine date range based on period
-            $endDate = date('Y-m-d 23:59:59'); // Include all of today
+            // Determine date range based on period (use DATE not DATETIME for payment_date column)
+            $today = date('Y-m-d');
             switch ($period) {
                 case 'week':
-                    $startDate = date('Y-m-d 00:00:00', strtotime('-7 days'));
-                    $groupBy = 'DATE(payment_date)';
+                    $startDate = date('Y-m-d', strtotime('-7 days'));
+                    $endDate = $today;
+                    $groupBy = 'payment_date';
                     $dateFormat = '%Y-%m-%d';
                     break;
                 case 'quarter':
-                    $startDate = date('Y-m-d 00:00:00', strtotime('-3 months'));
+                    $startDate = date('Y-m-d', strtotime('-3 months'));
+                    $endDate = $today;
                     $groupBy = 'DATE_FORMAT(payment_date, "%Y-%m")';
                     $dateFormat = '%Y-%m';
                     break;
                 case 'year':
-                    $startDate = date('Y-m-d 00:00:00', strtotime('-1 year'));
+                    $startDate = date('Y-m-d', strtotime('-1 year'));
+                    $endDate = $today;
                     $groupBy = 'DATE_FORMAT(payment_date, "%Y-%m")';
                     $dateFormat = '%Y-%m';
                     break;
                 default: // month - current month (1st to today)
-                    $startDate = date('Y-m-01 00:00:00');
-                    $groupBy = 'DATE(payment_date)';
+                    $startDate = date('Y-m-01');
+                    $endDate = $today;
+                    $groupBy = 'payment_date';
                     $dateFormat = '%Y-%m-%d';
             }
             
-            // 1. Total Revenue in period - also check total payments count
+            // 1. Total Revenue in period
             $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as count FROM payments WHERE payment_date >= ? AND payment_date <= ?");
             $stmt->execute([$startDate, $endDate]);
             $revenueResult = $stmt->fetch();
@@ -894,7 +898,37 @@ try {
                 'top_packages' => $topPackages
             ]);
             break;
+        
+        // ========== DEBUG PAYMENTS (for troubleshooting) ==========
+        case 'debug_payments':
+            // Get all payments with their dates
+            $stmt = $pdo->query("SELECT id, payment_no, payment_date, amount, created_at FROM payments ORDER BY payment_date DESC LIMIT 50");
+            $payments = $stmt->fetchAll();
             
+            // Get date range info
+            $today = date('Y-m-d');
+            $monthStart = date('Y-m-01');
+            
+            // Count payments this month
+            $stmt = $pdo->prepare("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM payments WHERE payment_date >= ? AND payment_date <= ?");
+            $stmt->execute([$monthStart, $today]);
+            $monthStats = $stmt->fetch();
+            
+            // Get all unique payment dates
+            $stmt = $pdo->query("SELECT DISTINCT payment_date FROM payments ORDER BY payment_date DESC LIMIT 30");
+            $uniqueDates = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            jsonResponse([
+                'success' => true,
+                'debug' => [
+                    'today' => $today,
+                    'month_start' => $monthStart,
+                    'payments_this_month' => $monthStats,
+                    'unique_payment_dates' => $uniqueDates,
+                    'recent_payments' => $payments
+                ]
+            ]);
+            break;
             
         default:
             jsonResponse([
