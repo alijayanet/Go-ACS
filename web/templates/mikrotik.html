@@ -640,6 +640,9 @@
                                         <button class="btn btn-primary btn-sm" onclick="printVouchers()">
                                             <i class="fas fa-print me-1"></i> Print All
                                         </button>
+                                        <button class="btn btn-warning btn-sm ms-1" onclick="printVouchersThermal58()">
+                                            <i class="fas fa-receipt me-1"></i> Thermal 58mm
+                                        </button>
                                         <button class="btn btn-outline-light btn-sm ms-2"
                                             onclick="document.getElementById('generated-result').style.display='none'">
                                             <i class="fas fa-times"></i>
@@ -3182,8 +3185,11 @@ Buka browser ketik: 192.168.8.1/login</textarea>
                     <td><span class="badge bg-secondary">${v.profile}</span></td>
                     <td>Rp ${formatPrice(v.price || 0)}</td>
                     <td class="text-end">
-                        <button class="btn btn-outline-primary btn-sm" onclick="printSingleVoucher('${v.username}', '${v.password}', '${v.profile}', ${v.price})">
+                        <button class="btn btn-outline-primary btn-sm" onclick="printSingleVoucher('${v.username}', '${v.password}', '${v.profile}', ${v.price || 0})" title="Print Normal">
                             <i class="fas fa-print"></i>
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm ms-1" onclick="printSingleVoucherThermal58('${v.username}', '${v.password}', '${v.profile}', ${v.price || 0}, '${v.duration || ''}')" title="Print Thermal 58mm">
+                            <i class="fas fa-receipt"></i>
                         </button>
                     </td>
                 </tr>
@@ -3335,6 +3341,201 @@ Buka browser ketik: 192.168.8.1/login</textarea>
                     <div style="display: flex; flex-wrap: wrap; justify-content: center;">
                         ${cards}
                     </div>
+                </body>
+                </html>
+            `;
+        }
+
+        // ========== THERMAL PRINTER 58mm FUNCTIONS ==========
+        function printVouchersThermal58() {
+            if (currentGeneratedVouchers.length === 0) return;
+            openThermal58Window(currentGeneratedVouchers);
+        }
+
+        function printSingleVoucherThermal58(username, password, profile, price, duration) {
+            openThermal58Window([{ username, password, profile, price, duration }]);
+        }
+
+        function openThermal58Window(vouchers) {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(generateThermal58HTML(vouchers));
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 500);
+        }
+
+        function generateThermal58HTML(vouchers) {
+            // Format durasi
+            function formatDuration(duration) {
+                if (!duration) return '-';
+                const value = parseInt(duration);
+                const unit = duration.slice(-1);
+                if (unit === 'd') return `${value} HARI`;
+                if (unit === 'h') return `${value} JAM`;
+                if (unit === 'w') return `${value * 7} HARI`;
+                return duration;
+            }
+
+            const receipts = vouchers.map(v => {
+                const priceFormatted = formatPrice(v.price || 0);
+                const duration = formatDuration(v.duration);
+
+                return `
+                <div class="receipt">
+                    <div class="receipt-header">
+                        <div class="brand">${voucherTemplate.header}</div>
+                        <div class="tagline">WiFi Voucher</div>
+                    </div>
+                    <div class="divider">================================</div>
+                    <div class="info-row">
+                        <span class="label">Profile:</span>
+                        <span class="value">${v.profile}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Durasi:</span>
+                        <span class="value">${duration}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Harga:</span>
+                        <span class="value price">Rp ${priceFormatted}</span>
+                    </div>
+                    <div class="divider">--------------------------------</div>
+                    <div class="credential-box">
+                        <div class="cred-label">USERNAME</div>
+                        <div class="cred-value">${v.username}</div>
+                    </div>
+                    <div class="credential-box">
+                        <div class="cred-label">PASSWORD</div>
+                        <div class="cred-value">${v.password}</div>
+                    </div>
+                    <div class="divider">--------------------------------</div>
+                    <div class="instructions">
+                        ${voucherTemplate.instructions.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="divider">================================</div>
+                    <div class="footer">${voucherTemplate.footer}</div>
+                    <div class="cut-line">- - - ✂ - - -</div>
+                </div>
+                `;
+            }).join('');
+
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Print Thermal 58mm</title>
+                    <style>
+                        @page {
+                            size: 58mm auto;
+                            margin: 0;
+                        }
+                        * {
+                            margin: 0;
+                            padding: 0;
+                            box-sizing: border-box;
+                        }
+                        body {
+                            font-family: 'Courier New', monospace;
+                            font-size: 12px;
+                            width: 58mm;
+                            background: #fff;
+                            color: #000;
+                        }
+                        .receipt {
+                            width: 58mm;
+                            padding: 5px 3px;
+                            page-break-after: always;
+                        }
+                        .receipt:last-child {
+                            page-break-after: auto;
+                        }
+                        .receipt-header {
+                            text-align: center;
+                            margin-bottom: 5px;
+                        }
+                        .brand {
+                            font-size: 16px;
+                            font-weight: bold;
+                        }
+                        .tagline {
+                            font-size: 11px;
+                            color: #555;
+                        }
+                        .divider {
+                            text-align: center;
+                            font-size: 10px;
+                            color: #888;
+                            margin: 3px 0;
+                            overflow: hidden;
+                        }
+                        .info-row {
+                            display: flex;
+                            justify-content: space-between;
+                            font-size: 11px;
+                            padding: 2px 0;
+                        }
+                        .info-row .label {
+                            color: #555;
+                        }
+                        .info-row .value {
+                            font-weight: bold;
+                        }
+                        .info-row .price {
+                            color: #000;
+                            font-size: 13px;
+                        }
+                        .credential-box {
+                            background: #f5f5f5;
+                            border: 1px dashed #999;
+                            text-align: center;
+                            padding: 5px 3px;
+                            margin: 3px 0;
+                        }
+                        .cred-label {
+                            font-size: 9px;
+                            color: #666;
+                            letter-spacing: 1px;
+                        }
+                        .cred-value {
+                            font-size: 16px;
+                            font-weight: bold;
+                            letter-spacing: 2px;
+                            margin-top: 2px;
+                        }
+                        .instructions {
+                            font-size: 9px;
+                            text-align: center;
+                            color: #555;
+                            line-height: 1.4;
+                            padding: 3px 0;
+                        }
+                        .footer {
+                            text-align: center;
+                            font-size: 10px;
+                            font-weight: bold;
+                            margin: 3px 0;
+                        }
+                        .cut-line {
+                            text-align: center;
+                            font-size: 12px;
+                            color: #999;
+                            margin-top: 8px;
+                            padding-top: 5px;
+                        }
+                        @media print {
+                            body {
+                                width: 58mm;
+                            }
+                            .receipt {
+                                page-break-inside: avoid;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${receipts}
                 </body>
                 </html>
             `;
