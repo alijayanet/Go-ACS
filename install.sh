@@ -319,113 +319,6 @@ else
     echo "[WARNING] Some migrations may have failed. Check manually if needed."
 fi
 
-# 7. Run Hotspot Voucher System Migration
-echo "[INFO] Running hotspot voucher system migration..."
-
-mysql -u $DB_USER -p$DB_PASS $DB_NAME <<HOTSPOT
-
--- Hotspot Vouchers Table
-CREATE TABLE IF NOT EXISTS hotspot_vouchers (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    batch_id VARCHAR(50) NOT NULL COMMENT 'Format: vc-acslite-YYYYMMDD-HHMMSS',
-    username VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(100) NOT NULL,
-    profile VARCHAR(50) NOT NULL,
-    price DECIMAL(10,2) NOT NULL DEFAULT 0,
-    duration VARCHAR(20) NOT NULL COMMENT 'Format: 3h, 1d, 7d',
-    limit_uptime INT NULL COMMENT 'Seconds',
-    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    sold_date DATETIME NULL,
-    first_login DATETIME NULL,
-    last_login DATETIME NULL,
-    expired_date DATETIME NULL,
-    status ENUM('unused', 'sold', 'active', 'expired', 'disabled') DEFAULT 'unused',
-    mac_address VARCHAR(17) NULL,
-    comment TEXT NULL,
-    scheduler_name VARCHAR(100) NULL,
-    mikrotik_comment TEXT NULL,
-    INDEX idx_batch (batch_id),
-    INDEX idx_profile (profile),
-    INDEX idx_status (status),
-    INDEX idx_created (created_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Voucher Batches Table
-CREATE TABLE IF NOT EXISTS voucher_batches (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    batch_id VARCHAR(50) UNIQUE NOT NULL,
-    profile VARCHAR(50) NOT NULL,
-    quantity INT NOT NULL DEFAULT 0,
-    price DECIMAL(10,2) NOT NULL DEFAULT 0,
-    duration VARCHAR(20) NOT NULL,
-    prefix VARCHAR(20) NULL,
-    code_length INT NOT NULL DEFAULT 6,
-    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) NULL,
-    total_unused INT DEFAULT 0,
-    total_sold INT DEFAULT 0,
-    total_active INT DEFAULT 0,
-    total_expired INT DEFAULT 0,
-    total_disabled INT DEFAULT 0,
-    revenue DECIMAL(10,2) DEFAULT 0,
-    notes TEXT NULL,
-    INDEX idx_profile (profile),
-    INDEX idx_created (created_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Hotspot Sales Table
-CREATE TABLE IF NOT EXISTS hotspot_sales (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    voucher_id INT NOT NULL,
-    batch_id VARCHAR(50) NOT NULL,
-    username VARCHAR(100) NOT NULL,
-    sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    price DECIMAL(10,2) NOT NULL,
-    actual_price DECIMAL(10,2) NULL,
-    seller VARCHAR(100) NULL,
-    customer_name VARCHAR(100) NULL,
-    customer_phone VARCHAR(20) NULL,
-    payment_method ENUM('cash', 'transfer', 'qris', 'ewallet', 'other') DEFAULT 'cash',
-    notes TEXT NULL,
-    INDEX idx_batch (batch_id),
-    INDEX idx_sale_date (sale_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Hotspot Profiles Table
-CREATE TABLE IF NOT EXISTS hotspot_profiles (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(50) UNIQUE NOT NULL,
-    price DECIMAL(10,2) NOT NULL DEFAULT 0,
-    duration VARCHAR(20) NOT NULL,
-    duration_seconds INT NOT NULL COMMENT 'Duration in seconds',
-    rate_limit VARCHAR(50) NULL,
-    shared_users INT DEFAULT 1,
-    session_timeout INT NULL,
-    idle_timeout INT NULL,
-    validity_type ENUM('uptime', 'time', 'both') DEFAULT 'uptime',
-    on_login_script TEXT NULL,
-    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_date DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
-    is_active TINYINT(1) DEFAULT 1,
-    INDEX idx_name (name),
-    INDEX idx_active (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Insert sample profiles if table is empty
-INSERT IGNORE INTO hotspot_profiles (name, price, duration, duration_seconds, rate_limit, validity_type) VALUES
-('3JAM', 3000, '3h', 10800, '2M/2M', 'uptime'),
-('1HARI', 5000, '1d', 86400, '2M/2M', 'uptime'),
-('3HARI', 10000, '3d', 259200, '2M/2M', 'uptime'),
-('1MINGGU', 20000, '7d', 604800, '3M/3M', 'uptime');
-
-HOTSPOT
-
-if [ $? -eq 0 ]; then
-    echo "[SUCCESS] Hotspot voucher tables created."
-else
-    echo "[WARNING] Hotspot tables may have failed. Check manually if needed."
-fi
-
 
 # ---------------------------------------------------------
 # PART 2: SERVICE SETUP
@@ -485,10 +378,12 @@ if [ -d "web/api" ]; then
     echo "[INFO] Copied web/api/"
 fi
 
-# Copy web/data if exists
+# Copy web/data if exists (including hidden files like .credentials.php)
 if [ -d "web/data" ]; then
-    cp -r web/data/* "$INSTALL_DIR/web/data/" 2>/dev/null || true
-    echo "[INFO] Copied web/data/"
+    cp -r web/data/. "$INSTALL_DIR/web/data/" 2>/dev/null || true
+    # Also copy hidden files explicitly 
+    cp web/data/.* "$INSTALL_DIR/web/data/" 2>/dev/null || true
+    echo "[INFO] Copied web/data/ (including hidden files)"
 fi
 
 # Copy .htaccess if exists
@@ -550,17 +445,22 @@ echo ">>> STEP 3: Installing PHP API Server..."
 echo "[INFO] Fixing repository configuration..."
 sed -i '/backports/d' /etc/apt/sources.list 2>/dev/null || true
 
-# 2. Install PHP
-echo "[INFO] Installing PHP..."
+# 2. Install PHP and required extensions
+echo "[INFO] Installing PHP and extensions..."
 if ! command -v php &> /dev/null; then
     if command -v apt-get &> /dev/null; then
         apt-get update
-        apt-get install -y php-cli php-mysql php-json 2>/dev/null || apt-get install -y php php-mysql 2>/dev/null || echo "[WARNING] PHP installation failed. Customer API may not work."
+        apt-get install -y php-cli php-mysql php-json php-zip php-curl 2>/dev/null || apt-get install -y php php-mysql php-zip php-curl 2>/dev/null || echo "[WARNING] PHP installation failed. Customer API may not work."
     elif command -v yum &> /dev/null; then
-        yum install -y php php-mysql php-json 2>/dev/null || echo "[WARNING] PHP installation failed."
+        yum install -y php php-mysql php-json php-zip php-curl 2>/dev/null || echo "[WARNING] PHP installation failed."
     fi
 else
     echo "[INFO] PHP is already installed."
+    # Ensure required extensions are installed
+    if ! php -m | grep -qi zip; then
+        echo "[INFO] Installing php-zip extension..."
+        apt-get install -y php-zip 2>/dev/null || yum install -y php-zip 2>/dev/null || true
+    fi
 fi
 
 # 3. Customer data is now stored in MySQL (onu_locations table)
