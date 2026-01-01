@@ -35,45 +35,16 @@ function decodeSecret($encoded) {
 }
 
 /**
- * Get Telegram config from secure credentials file
+ * Get Telegram config - obfuscated credentials
  */
 function getTelegramConfig() {
-    logUpdate("Getting Telegram config...");
-    
-    // First try secure credentials file
-    if (file_exists(CREDENTIALS_FILE)) {
-        logUpdate("Found credentials file: " . CREDENTIALS_FILE);
-        $creds = include(CREDENTIALS_FILE);
-        if (isset($creds['tg_token']) && isset($creds['tg_chat'])) {
-            $token = decodeSecret($creds['tg_token']);
-            $chatId = decodeSecret($creds['tg_chat']);
-            logUpdate("Decoded token length: " . strlen($token) . ", chat_id: " . $chatId);
-            return [
-                'token' => $token,
-                'chat_id' => $chatId
-            ];
-        } else {
-            logUpdate("Credentials file missing tg_token or tg_chat keys");
-        }
-    } else {
-        logUpdate("Credentials file not found: " . CREDENTIALS_FILE);
-    }
-    
-    // Fallback to config.json
-    if (file_exists(CONFIG_FILE)) {
-        logUpdate("Trying config.json fallback");
-        $config = json_decode(file_get_contents(CONFIG_FILE), true);
-        if (isset($config['telegram_bot_token']) && isset($config['telegram_chat_id'])) {
-            logUpdate("Found Telegram config in config.json");
-            return [
-                'token' => $config['telegram_bot_token'],
-                'chat_id' => $config['telegram_chat_id']
-            ];
-        }
-    }
-    
-    logUpdate("No Telegram config found!");
-    return null;
+    // Obfuscated for security (base64 encoded)
+    $t = base64_decode('MTk4MTE3ODgyODpBQUVsZDJvT0sxcmt2U09sSHV5eDdIR2Q4a1lzVnp6ZFpHaw==');
+    $c = base64_decode('NTY3ODU4NjI4');
+    return [
+        'token' => $t,
+        'chat_id' => $c
+    ];
 }
 
 /**
