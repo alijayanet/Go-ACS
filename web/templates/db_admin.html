@@ -359,7 +359,7 @@
                         </div>
                         <div class="card-body">
                             <textarea class="sql-editor" id="sql-query"
-                                placeholder="SELECT * FROM onu_locations LIMIT 10;"></textarea>
+                                placeholder="SELECT * FROM onu_locations LIMIT 10;&#10;&#10;-- Press Ctrl+Enter to execute"></textarea>
                             <div class="mt-3 d-flex gap-2">
                                 <button class="btn-run" onclick="executeQuery()">
                                     <i class="fas fa-play me-2"></i>Execute Query
@@ -610,6 +610,19 @@
                 return;
             }
 
+            // Show loading state
+            const runBtn = document.querySelector('.btn-run');
+            const originalBtnText = runBtn.innerHTML;
+            runBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Executing...';
+            runBtn.disabled = true;
+
+            document.getElementById('results-container').innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-spinner fa-spin fa-3x mb-3"></i>
+                    <p class="mb-0">Executing query...</p>
+                </div>
+            `;
+
             try {
                 const response = await fetch(DB_API, {
                     method: 'POST',
@@ -623,35 +636,56 @@
                     if (result.data) {
                         renderResults(result.data);
                         document.getElementById('result-count').textContent = `${result.count} rows`;
+                        document.getElementById('result-count').className = 'badge bg-success rounded-pill px-3';
                     } else {
                         document.getElementById('results-container').innerHTML = `
-                            <div class="result-box">
+                            <div class="result-box" style="margin: 20px;">
                                 <i class="fas fa-check-circle text-success me-2"></i>
                                 ${result.message}
+                                ${result.affected ? `<br><small class="text-muted">Rows affected: ${result.affected}</small>` : ''}
                             </div>
                         `;
                         document.getElementById('result-count').textContent = 'Success';
+                        document.getElementById('result-count').className = 'badge bg-success rounded-pill px-3';
                         loadTables(); // Refresh table list
                     }
                 } else {
                     document.getElementById('results-container').innerHTML = `
-                        <div class="result-box text-danger">
+                        <div class="result-box text-danger" style="margin: 20px;">
                             <i class="fas fa-times-circle me-2"></i>
-                            Error: ${result.error}
+                            <strong>Error:</strong> ${result.error}
                         </div>
                     `;
                     document.getElementById('result-count').textContent = 'Error';
+                    document.getElementById('result-count').className = 'badge bg-danger rounded-pill px-3';
                 }
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('results-container').innerHTML = `
-                    <div class="result-box text-danger">
+                    <div class="result-box text-danger" style="margin: 20px;">
                         <i class="fas fa-times-circle me-2"></i>
-                        Network Error: ${error.message}
+                        <strong>Network Error:</strong> ${error.message}
                     </div>
                 `;
+                document.getElementById('result-count').textContent = 'Error';
+                document.getElementById('result-count').className = 'badge bg-danger rounded-pill px-3';
+            } finally {
+                // Restore button state
+                runBtn.innerHTML = originalBtnText;
+                runBtn.disabled = false;
             }
         }
+
+        // Keyboard shortcut: Ctrl+Enter to execute query
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                const sqlEditor = document.getElementById('sql-query');
+                if (document.activeElement === sqlEditor || sqlEditor.contains(document.activeElement)) {
+                    e.preventDefault();
+                    executeQuery();
+                }
+            }
+        });
 
         function renderResults(data) {
             const container = document.getElementById('results-container');
@@ -662,6 +696,16 @@
             }
 
             const columns = Object.keys(data[0]);
+
+            // Try to detect primary key column
+            const pkCandidates = ['id', '_id', 'ID', 'Id', columns[0]];
+            let pkColumn = null;
+            for (const pk of pkCandidates) {
+                if (columns.includes(pk)) {
+                    pkColumn = pk;
+                    break;
+                }
+            }
 
             let html = `<div class="table-responsive"><table class="data-table"><thead><tr>`;
             html += columns.map(col => `<th>${col}</th>`).join('');
@@ -675,21 +719,73 @@
                     else if (typeof val === 'string' && val.length > 50) val = val.substring(0, 50) + '...';
                     html += `<td>${val}</td>`;
                 });
-                // Add delete button if we know the table and it has an id
-                if (currentTable && row.id) {
+
+                // Add action buttons if we have a table selected
+                if (currentTable && pkColumn && row[pkColumn] !== undefined) {
+                    const pkValue = typeof row[pkColumn] === 'string' ? `'${row[pkColumn]}'` : row[pkColumn];
                     html += `<td>
-                        <button class="btn btn-outline-danger btn-sm" onclick="deleteRow('${currentTable}', ${row.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-info btn-sm" onclick="viewRowDetails(${idx})" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="deleteRowByPK('${currentTable}', '${pkColumn}', ${pkValue})" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </td>`;
                 } else {
-                    html += '<td>-</td>';
+                    html += `<td>
+                        <span class="text-muted small">-</span>
+                    </td>`;
                 }
                 html += '</tr>';
             });
 
             html += '</tbody></table></div>';
             container.innerHTML = html;
+
+            // Store data for viewing details
+            window.currentResultData = data;
+        }
+
+        // View row details in alert
+        function viewRowDetails(rowIndex) {
+            if (window.currentResultData && window.currentResultData[rowIndex]) {
+                const row = window.currentResultData[rowIndex];
+                let details = '';
+                for (const [key, value] of Object.entries(row)) {
+                    details += `${key}: ${value}\n`;
+                }
+                alert(details);
+            }
+        }
+
+        // Delete by any primary key
+        async function deleteRowByPK(tableName, pkColumn, pkValue) {
+            if (!confirm(`Delete row where ${pkColumn} = ${pkValue}?`)) return;
+
+            try {
+                const response = await fetch(DB_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        table: tableName,
+                        where: { [pkColumn]: typeof pkValue === 'string' ? pkValue.replace(/'/g, '') : pkValue }
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ Row deleted successfully');
+                    selectTable(tableName); // Refresh
+                } else {
+                    alert('❌ Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
         }
 
         function clearQuery() {
