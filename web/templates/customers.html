@@ -247,6 +247,34 @@
             margin-bottom: 20px;
         }
 
+        .stat-mini {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-mini:hover {
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-neon);
+            transform: translateY(-2px);
+        }
+
+        .stat-mini-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-mini-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
         .stat-mini-icon {
             width: 45px;
             height: 45px;
