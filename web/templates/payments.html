@@ -439,6 +439,10 @@
                 class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
                 <i class="fas fa-database"></i><span>Database Admin</span>
             </a>
+            <a href="updater.html"
+                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+                <i class="fas fa-cloud-download-alt"></i><span>Update Sistem</span>
+            </a>
             <a href="javascript:void(0)" onclick="logout()"
                 class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
                 <i class="fas fa-sign-out-alt"></i><span>Logout</span>
@@ -575,7 +579,20 @@
             return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
         }
 
+        // Check if user is logged in
+        function checkSession() {
+            const session = sessionStorage.getItem('acs_session');
+            if (!session) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            // Check session first
+            if (!checkSession()) return;
+
             const today = new Date();
             document.getElementById('filter-month').value = today.toISOString().slice(0, 7);
             document.getElementById('filter-month').addEventListener('change', loadPayments);

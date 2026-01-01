@@ -853,8 +853,21 @@
         let searchTimeout;
         let generateModal;
 
+        // Check if user is logged in
+        function checkSession() {
+            const session = sessionStorage.getItem('acs_session');
+            if (!session) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            // Check session first
+            if (!checkSession()) return;
+
             loadStats();
             loadProfiles();
             loadVouchers();
