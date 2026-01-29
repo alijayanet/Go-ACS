@@ -7,7 +7,7 @@
 # ========================================
 DB_NAME="acs"
 DB_USER="root"
-DB_PASS="secret123"
+DB_PASS="h6Uems6h4HmW1y7"
 INSTALL_DIR="/opt/acs"
 SERVICE_NAME="acslite"
 DB_DSN="$DB_USER:$DB_PASS@tcp(127.0.0.1:3306)/$DB_NAME?parseTime=true"
@@ -214,7 +214,6 @@ CREATE TABLE IF NOT EXISTS telegram_config (
     id INT AUTO_INCREMENT PRIMARY KEY,
     bot_token VARCHAR(100) NOT NULL COMMENT 'Bot Token dari BotFather',
     bot_username VARCHAR(50) DEFAULT NULL COMMENT 'Username bot (opsional)',
-    webhook_url VARCHAR(255) DEFAULT NULL COMMENT 'URL webhook',
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -319,6 +318,113 @@ else
     echo "[WARNING] Some migrations may have failed. Check manually if needed."
 fi
 
+# 7. Run Hotspot Voucher System Migration
+echo "[INFO] Running hotspot voucher system migration..."
+
+mysql -u $DB_USER -p$DB_PASS $DB_NAME <<HOTSPOT
+
+-- Hotspot Vouchers Table
+CREATE TABLE IF NOT EXISTS hotspot_vouchers (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    batch_id VARCHAR(50) NOT NULL COMMENT 'Format: vc-acslite-YYYYMMDD-HHMMSS',
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    profile VARCHAR(50) NOT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    duration VARCHAR(20) NOT NULL COMMENT 'Format: 3h, 1d, 7d',
+    limit_uptime INT NULL COMMENT 'Seconds',
+    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sold_date DATETIME NULL,
+    first_login DATETIME NULL,
+    last_login DATETIME NULL,
+    expired_date DATETIME NULL,
+    status ENUM('unused', 'sold', 'active', 'expired', 'disabled') DEFAULT 'unused',
+    mac_address VARCHAR(17) NULL,
+    comment TEXT NULL,
+    scheduler_name VARCHAR(100) NULL,
+    mikrotik_comment TEXT NULL,
+    INDEX idx_batch (batch_id),
+    INDEX idx_profile (profile),
+    INDEX idx_status (status),
+    INDEX idx_created (created_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Voucher Batches Table
+CREATE TABLE IF NOT EXISTS voucher_batches (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    batch_id VARCHAR(50) UNIQUE NOT NULL,
+    profile VARCHAR(50) NOT NULL,
+    quantity INT NOT NULL DEFAULT 0,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    duration VARCHAR(20) NOT NULL,
+    prefix VARCHAR(20) NULL,
+    code_length INT NOT NULL DEFAULT 6,
+    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) NULL,
+    total_unused INT DEFAULT 0,
+    total_sold INT DEFAULT 0,
+    total_active INT DEFAULT 0,
+    total_expired INT DEFAULT 0,
+    total_disabled INT DEFAULT 0,
+    revenue DECIMAL(10,2) DEFAULT 0,
+    notes TEXT NULL,
+    INDEX idx_profile (profile),
+    INDEX idx_created (created_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Hotspot Sales Table
+CREATE TABLE IF NOT EXISTS hotspot_sales (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    voucher_id INT NOT NULL,
+    batch_id VARCHAR(50) NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    price DECIMAL(10,2) NOT NULL,
+    actual_price DECIMAL(10,2) NULL,
+    seller VARCHAR(100) NULL,
+    customer_name VARCHAR(100) NULL,
+    customer_phone VARCHAR(20) NULL,
+    payment_method ENUM('cash', 'transfer', 'qris', 'ewallet', 'other') DEFAULT 'cash',
+    notes TEXT NULL,
+    INDEX idx_batch (batch_id),
+    INDEX idx_sale_date (sale_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Hotspot Profiles Table
+CREATE TABLE IF NOT EXISTS hotspot_profiles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    duration VARCHAR(20) NOT NULL,
+    duration_seconds INT NOT NULL COMMENT 'Duration in seconds',
+    rate_limit VARCHAR(50) NULL,
+    shared_users INT DEFAULT 1,
+    session_timeout INT NULL,
+    idle_timeout INT NULL,
+    validity_type ENUM('uptime', 'time', 'both') DEFAULT 'uptime',
+    on_login_script TEXT NULL,
+    created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_date DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+    is_active TINYINT(1) DEFAULT 1,
+    INDEX idx_name (name),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insert sample profiles if table is empty
+INSERT IGNORE INTO hotspot_profiles (name, price, duration, duration_seconds, rate_limit, validity_type) VALUES
+('3JAM', 3000, '3h', 10800, '2M/2M', 'uptime'),
+('1HARI', 5000, '1d', 86400, '2M/2M', 'uptime'),
+('3HARI', 10000, '3d', 259200, '2M/2M', 'uptime'),
+('1MINGGU', 20000, '7d', 604800, '3M/3M', 'uptime');
+
+HOTSPOT
+
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Hotspot voucher tables created."
+else
+    echo "[WARNING] Hotspot tables may have failed. Check manually if needed."
+fi
+
 
 # ---------------------------------------------------------
 # PART 2: SERVICE SETUP
@@ -378,12 +484,10 @@ if [ -d "web/api" ]; then
     echo "[INFO] Copied web/api/"
 fi
 
-# Copy web/data if exists (including hidden files like .credentials.php)
+# Copy web/data if exists
 if [ -d "web/data" ]; then
-    cp -r web/data/. "$INSTALL_DIR/web/data/" 2>/dev/null || true
-    # Also copy hidden files explicitly 
-    cp web/data/.* "$INSTALL_DIR/web/data/" 2>/dev/null || true
-    echo "[INFO] Copied web/data/ (including hidden files)"
+    cp -r web/data/* "$INSTALL_DIR/web/data/" 2>/dev/null || true
+    echo "[INFO] Copied web/data/"
 fi
 
 # Copy .htaccess if exists
@@ -445,22 +549,17 @@ echo ">>> STEP 3: Installing PHP API Server..."
 echo "[INFO] Fixing repository configuration..."
 sed -i '/backports/d' /etc/apt/sources.list 2>/dev/null || true
 
-# 2. Install PHP and required extensions
-echo "[INFO] Installing PHP and extensions..."
+# 2. Install PHP
+echo "[INFO] Installing PHP..."
 if ! command -v php &> /dev/null; then
     if command -v apt-get &> /dev/null; then
         apt-get update
-        apt-get install -y php-cli php-mysql php-json php-zip php-curl 2>/dev/null || apt-get install -y php php-mysql php-zip php-curl 2>/dev/null || echo "[WARNING] PHP installation failed. Customer API may not work."
+        apt-get install -y php-cli php-mysql php-json 2>/dev/null || apt-get install -y php php-mysql 2>/dev/null || echo "[WARNING] PHP installation failed. Customer API may not work."
     elif command -v yum &> /dev/null; then
-        yum install -y php php-mysql php-json php-zip php-curl 2>/dev/null || echo "[WARNING] PHP installation failed."
+        yum install -y php php-mysql php-json 2>/dev/null || echo "[WARNING] PHP installation failed."
     fi
 else
     echo "[INFO] PHP is already installed."
-    # Ensure required extensions are installed
-    if ! php -m | grep -qi zip; then
-        echo "[INFO] Installing php-zip extension..."
-        apt-get install -y php-zip 2>/dev/null || yum install -y php-zip 2>/dev/null || true
-    fi
 fi
 
 # 3. Customer data is now stored in MySQL (onu_locations table)
@@ -632,6 +731,69 @@ echo "  - Auto-isolir overdue: Daily at 00:01"
 echo "  - Auto-generate invoice: Monthly (1st) at 00:01"
 
 # ---------------------------------------------------------
+# PART 7: TELEGRAM BOT LONG POLLING SERVICE
+# ---------------------------------------------------------
+echo ""
+echo ">>> STEP 7: Setting up Telegram Bot (Long Polling)..."
+
+# Check if telegram_bot_polling.php exists
+if [ -f "$INSTALL_DIR/web/api/telegram_bot_polling.php" ]; then
+    echo "[INFO] Installing Telegram bot service..."
+    
+    # Make script executable
+    chmod +x "$INSTALL_DIR/web/api/telegram_bot_polling.php"
+    
+    # Create systemd service file
+    cat <<EOF > /etc/systemd/system/telegram-bot.service
+[Unit]
+Description=ACS-Lite Telegram Bot (Long Polling)
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$INSTALL_DIR/web/api
+ExecStart=/usr/bin/php $INSTALL_DIR/web/api/telegram_bot_polling.php
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=telegram-bot
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Create log directory
+    mkdir -p /var/log
+    touch /var/log/telegram_bot.log
+    chmod 644 /var/log/telegram_bot.log
+    
+    # Reload systemd
+    systemctl daemon-reload
+    
+    # Enable service (but don't start yet - needs configuration)
+    systemctl enable telegram-bot
+    
+    echo "[SUCCESS] Telegram bot service installed"
+    echo "[INFO] Bot service is enabled but not started"
+    echo "[INFO] Configure bot token in Settings > Telegram Bot, then start the service"
+    
+    TELEGRAM_STATUS="Installed (not configured)"
+else
+    echo "[WARNING] telegram_bot_polling.php not found. Skipping Telegram bot installation."
+    TELEGRAM_STATUS="Not installed"
+fi
+
+# ---------------------------------------------------------
 # FINAL STATUS
 # ---------------------------------------------------------
 
@@ -645,12 +807,12 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo "📍 Main Application (Go Server - Port 7547):"
     echo "   Admin Panel:     http://$SERVER_IP:7547/web/index.html"
     echo "   Admin Login:     http://$SERVER_IP:7547/web/login.html"
-    echo "   Dashboard:       http://$SERVER_IP:7547/web/dashboard.html"
     echo "   Map View:        http://$SERVER_IP:7547/web/map.html"
     echo "   Database Admin:  http://$SERVER_IP:7547/web/db_admin.html"
+    echo "   Data Viewer:     http://$SERVER_IP:7547/web/check_database.html"
     echo ""
-    echo "📍 Customer Portal:"
-    echo "   Customer Login:  http://$SERVER_IP:7547/web/customer_login.html"
+    echo "📍 Customer Portal (PHP API - Port 8888):"
+    echo "   Customer Login: http://$SERVER_IP:7547/web/customer_login.html"
     echo "   API Status: $PHP_STATUS"
     echo ""
     echo "📍 Admin Credentials:"
@@ -664,8 +826,15 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo "   ONU Inform Interval: 5 minutes (configured)"
     echo ""
     echo "📍 Service Commands:"
-    echo "   ACS Status:     systemctl status $SERVICE_NAME"
-    echo "   PHP API Status: systemctl status acs-php-api"
+    echo "   ACS Status:      systemctl status $SERVICE_NAME"
+    echo "   PHP API Status:  systemctl status acs-php-api"
+    echo "   Telegram Bot:    systemctl status telegram-bot"
+    echo ""
+    echo "📍 Telegram Bot:"
+    echo "   Status: $TELEGRAM_STATUS"
+    echo "   Configure: Settings > Telegram Bot"
+    echo "   Start Bot: systemctl start telegram-bot"
+    echo "   View Logs: journalctl -u telegram-bot -f"
     echo "------------------------------------------"
 
     
@@ -677,8 +846,8 @@ if systemctl is-active --quiet $SERVICE_NAME; then
 💻 Hostname: $(hostname)
 
 🌐 <b>Access URLs:</b>
+• Admin Panel: http://${SERVER_IP}:7547/web/index.html
 • Admin Login: http://${SERVER_IP}:7547/web/login.html
-• Dashboard: http://${SERVER_IP}:7547/web/dashboard.html
 • Customer Portal: http://${SERVER_IP}:7547/web/customer_login.html
 
 🔐 <b>Admin Credentials:</b>

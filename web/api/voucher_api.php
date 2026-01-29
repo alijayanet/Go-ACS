@@ -9,7 +9,8 @@
  * @version 1.0.0
  */
 
-ini_set('display_errors', 1);
+// Disable error display to prevent breaking JSON output
+ini_set('display_errors', 0);
 error_reporting(E_ALL);
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -65,6 +66,26 @@ if (file_exists(__DIR__ . '/../config/database.php')) {
 }
 
 require_once __DIR__ . '/MikroTikAPI.php';
+
+function loadHotspotSettings() {
+    $settingsFile = __DIR__ . '/../data/settings.json';
+    $defaults = [
+        'hotspot' => [
+            'backend' => 'mikrotik',
+            'radius' => [
+                'enabled' => false
+            ]
+        ]
+    ];
+
+    if (file_exists($settingsFile)) {
+        $loaded = json_decode(file_get_contents($settingsFile), true) ?: [];
+        $merged = array_replace_recursive($defaults, $loaded);
+        return $merged['hotspot'] ?? $defaults['hotspot'];
+    }
+
+    return $defaults['hotspot'];
+}
 
 class VoucherAPI {
     
@@ -465,6 +486,40 @@ class VoucherAPI {
     }
     
     /**
+     * Update existing profile
+     */
+    private function updateProfile() {
+        $data = json_decode(file_get_contents('php://input'), true);
+        
+        $name = $data['name'] ?? '';
+        $price = floatval($data['price'] ?? 0);
+        $duration = $data['duration'] ?? '';
+        $rate_limit = $data['rate_limit'] ?? '';
+        $validity_type = $data['validity_type'] ?? 'uptime';
+        
+        if (empty($name)) {
+            throw new Exception("Profile name is required");
+        }
+        
+        // Check if profile exists
+        $stmt = $this->db->prepare("SELECT id FROM hotspot_profiles WHERE name = ?");
+        $stmt->execute([$name]);
+        if (!$stmt->fetch()) {
+            throw new Exception("Profile not found");
+        }
+        
+        // Update profile in database
+        $stmt = $this->db->prepare("
+            UPDATE hotspot_profiles 
+            SET price = ?, duration = ?, rate_limit = ?, validity_type = ?, updated_at = NOW()
+            WHERE name = ?
+        ");
+        $stmt->execute([$price, $duration, $rate_limit, $validity_type, $name]);
+        
+        return $this->success(['message' => 'Profile updated successfully']);
+    }
+    
+    /**
      * Generate vouchers
      */
     private function generateVouchers() {
@@ -666,6 +721,17 @@ class VoucherAPI {
                 'comment' => $mikrotikComment
             ];
         }
+
+        $hotspotSettings = loadHotspotSettings();
+        $hotspotBackend = $hotspotSettings['backend'] ?? 'mikrotik';
+        if ($hotspotBackend === 'radius') {
+            return $this->success([
+                'message' => "Generated {$quantity} vouchers successfully. Hotspot backend is set to RADIUS; MikroTik auto-sync skipped. Run radius_sync.php (cron) to sync vouchers to RADIUS.",
+                'batch_id' => $batchId,
+                'vouchers' => $vouchers,
+                'backend' => 'radius'
+            ]);
+        }
         
         // AUTO-SYNC to MikroTik (Mikhmon Style)
         try {
@@ -779,8 +845,8 @@ class VoucherAPI {
         $profile = $_GET['profile'] ?? '';
         $status = $_GET['status'] ?? '';
         $search = $_GET['search'] ?? '';
-        $limit = (int)($_GET['limit'] ?? 100);
-        $offset = (int)($_GET['offset'] ?? 0);
+        $limit = max(1, min(1000, (int)($_GET['limit'] ?? 100)));
+        $offset = max(0, (int)($_GET['offset'] ?? 0));
         
         $sql = "SELECT * FROM hotspot_vouchers WHERE 1=1";
         $params = [];
@@ -806,9 +872,8 @@ class VoucherAPI {
             $params[] = "%{$search}%";
         }
         
-        $sql .= " ORDER BY created_date DESC LIMIT ? OFFSET ?";
-        $params[] = $limit;
-        $params[] = $offset;
+        // Use direct integer values for LIMIT/OFFSET (safe since already cast to int)
+        $sql .= " ORDER BY created_date DESC LIMIT {$limit} OFFSET {$offset}";
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -818,7 +883,7 @@ class VoucherAPI {
         $countSql = str_replace("SELECT *", "SELECT COUNT(*)", $sql);
         $countSql = preg_replace('/LIMIT.*/', '', $countSql);
         $stmt = $this->db->prepare($countSql);
-        $stmt->execute(array_slice($params, 0, -2));
+        $stmt->execute($params);
         $total = $stmt->fetchColumn();
         
         return $this->success([
@@ -970,10 +1035,12 @@ class VoucherAPI {
         $stmt = $this->db->prepare("DELETE FROM hotspot_profiles WHERE name = ?");
         $stmt->execute([$name]);
         
-        // Try to delete from MikroTik
+        // Try to delete from MikroTik (if method exists)
         try {
-            $this->mikrotik->deleteHotspotProfile($name);
-        } catch (Exception $e) {
+            if ($this->mikrotik && method_exists($this->mikrotik, 'deleteHotspotProfile')) {
+                $this->mikrotik->deleteHotspotProfile($name);
+            }
+        } catch (Throwable $e) {
             error_log("Failed to delete profile from MikroTik: " . $e->getMessage());
         }
         
@@ -987,15 +1054,36 @@ class VoucherAPI {
         $dateFrom = $_GET['date_from'] ?? date('Y-m-01');
         $dateTo = $_GET['date_to'] ?? date('Y-m-d');
         
-        $stmt = $this->db->prepare("
-            SELECT s.*, v.profile, v.duration
-            FROM hotspot_sales s
-            JOIN hotspot_vouchers v ON s.voucher_id = v.id
-            WHERE DATE(s.sale_date) BETWEEN ? AND ?
-            ORDER BY s.sale_date DESC
-        ");
-        $stmt->execute([$dateFrom, $dateTo]);
-        $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $sales = [];
+        
+        // Try to get from hotspot_sales first
+        try {
+            $stmt = $this->db->prepare("
+                SELECT s.*, v.profile, v.duration
+                FROM hotspot_sales s
+                JOIN hotspot_vouchers v ON s.voucher_id = v.id
+                WHERE DATE(s.sale_date) BETWEEN ? AND ?
+                ORDER BY s.sale_date DESC
+            ");
+            $stmt->execute([$dateFrom, $dateTo]);
+            $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            // Table doesn't exist, fallback to hotspot_vouchers
+        }
+        
+        // Fallback: get sold vouchers directly
+        if (empty($sales)) {
+            $stmt = $this->db->prepare("
+                SELECT id, username, profile, price as actual_price, 
+                       sold_date, comment as customer_name, 'cash' as payment_method
+                FROM hotspot_vouchers
+                WHERE status = 'sold' AND sold_date IS NOT NULL
+                  AND DATE(sold_date) BETWEEN ? AND ?
+                ORDER BY sold_date DESC
+            ");
+            $stmt->execute([$dateFrom, $dateTo]);
+            $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
         
         // Calculate totals
         $totalSales = count($sales);

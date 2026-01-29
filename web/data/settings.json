@@ -32,5 +32,17 @@
         "enabled": false,
         "api_url": "",
         "api_key": ""
+    },
+    "hotspot": {
+        "backend": "mikrotik",
+        "backup_to_radius": true,
+        "radius": {
+            "enabled": true,
+            "db_host": "127.0.0.1",
+            "db_port": 3306,
+            "db_name": "radius",
+            "db_user": "radius",
+            "db_pass": "radius123"
+        }
     }
 }

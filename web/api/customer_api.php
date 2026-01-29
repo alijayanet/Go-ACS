@@ -463,16 +463,41 @@ if ($method === 'POST') {
 }
 
 // ========================================
-// GET Request Handler - Get Device Data
+// GET Request Handler - Get Device Data or All Locations
 // ========================================
 if ($method === 'GET') {
+    $db = getDB($config);
+    
+    // Check if requesting all locations
+    $action = $_GET['action'] ?? '';
+    
+    if ($action === 'get_all_locations') {
+        // Return all ONU locations from database
+        $locations = [];
+        
+        if ($db) {
+            try {
+                $stmt = $db->prepare("SELECT serial_number, name, username, latitude, longitude FROM onu_locations ORDER BY updated_at DESC");
+                $stmt->execute();
+                $locations = $stmt->fetchAll();
+            } catch (PDOException $e) {
+                // error_log("Get all locations error: " . $e->getMessage());
+            }
+        }
+        
+        jsonResponse([
+            'success' => true,
+            'locations' => $locations,
+            'count' => count($locations)
+        ]);
+    }
+    
+    // Otherwise, get single device data by serial number
     $serialNumber = $_GET['sn'] ?? '';
     
     if (empty($serialNumber)) {
-        jsonResponse(['success' => false, 'message' => 'Serial number is required (use ?sn=XXX)'], 400);
+        jsonResponse(['success' => false, 'message' => 'Serial number is required (use ?sn=XXX) or use ?action=get_all_locations'], 400);
     }
-
-    $db = getDB($config);
     
     // Get location data from database
     $location = null;

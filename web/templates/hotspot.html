@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hotspot Voucher - ACSLite</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="gembok_theme.css" rel="stylesheet">
@@ -24,24 +23,163 @@
             background: var(--bg-primary);
         }
 
+        /* Sidebar Styles */
         .sidebar {
             position: fixed;
             left: 0;
             top: 0;
             bottom: 0;
             width: var(--sidebar-width);
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
             z-index: 1000;
             overflow-y: auto;
         }
 
-        .main-content {
-            margin-left: var(--sidebar-width);
-            min-height: 100vh;
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .page-header {
-            padding: 25px;
-            border-bottom: 1px solid var(--border-color);
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-primary);
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .brand-text {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-menu {
+            padding: 15px;
+        }
+
+        .menu-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            padding: 10px 12px 5px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 10px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .menu-item.active {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.1));
+            color: var(--neon-blue);
+        }
+
+        .menu-item i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        /* Submenu Styles */
+        .menu-item-parent {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: var(--text-secondary);
+            border-radius: 10px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .menu-item-parent:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .menu-arrow {
+            transition: transform 0.3s;
+        }
+
+        .menu-item-parent.open .menu-arrow {
+            transform: rotate(90deg);
+        }
+
+        .menu-submenu {
+            display: none;
+            padding-left: 20px;
+            overflow: hidden;
+        }
+
+        .menu-submenu.show {
+            display: block;
+        }
+
+        .submenu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 2px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .submenu-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .submenu-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            min-height: 100vh;
         }
 
         /* Stats Cards */
@@ -50,7 +188,6 @@
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
-            padding: 25px;
         }
 
         .stat-card {
@@ -60,57 +197,74 @@
             border: 1px solid var(--border-color);
             position: relative;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
         }
 
         .stat-card::before {
             content: '';
             position: absolute;
             top: 0;
+            left: 0;
             right: 0;
-            width: 100px;
-            height: 100px;
-            background: radial-gradient(circle, rgba(0, 245, 255, 0.1), transparent);
-            border-radius: 50%;
-            transform: translate(30px, -30px);
+            height: 4px;
+        }
+
+        .stat-card.green::before {
+            background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        .stat-card.blue::before {
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+
+        .stat-card.orange::before {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        .stat-card.purple::before {
+            background: linear-gradient(90deg, #8b5cf6, #a78bfa);
         }
 
         .stat-card .icon {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            opacity: 0.8;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+        }
+
+        .stat-card.green .icon {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+
+        .stat-card.blue .icon {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        .stat-card.orange .icon {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+
+        .stat-card.purple .icon {
+            background: rgba(139, 92, 246, 0.15);
+            color: #8b5cf6;
         }
 
         .stat-card .value {
             font-size: 2rem;
             font-weight: 700;
-            margin-bottom: 5px;
             color: var(--text-primary);
         }
 
         .stat-card .label {
             font-size: 0.85rem;
             color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stat-card.green .icon {
-            color: var(--neon-green);
-        }
-
-        .stat-card.blue .icon {
-            color: var(--neon-cyan);
-        }
-
-        .stat-card.orange .icon {
-            color: var(--neon-orange);
-        }
-
-        .stat-card.purple .icon {
-            color: var(--neon-pink);
+            margin-top: 4px;
         }
 
         /* Tabs */
@@ -119,49 +273,55 @@
             border-radius: 16px;
             border: 1px solid var(--border-color);
             overflow: hidden;
-            margin: 0 25px 25px 25px;
         }
 
         .tabs-header {
             display: flex;
-            gap: 0;
             border-bottom: 1px solid var(--border-color);
-            background: rgba(255, 255, 255, 0.02);
+            overflow-x: auto;
         }
 
         .tab-btn {
-            flex: 1;
-            padding: 16px 20px;
-            border: none;
+            padding: 16px 24px;
             background: transparent;
+            border: none;
             color: var(--text-secondary);
-            font-weight: 500;
             cursor: pointer;
+            font-weight: 500;
+            white-space: nowrap;
             transition: all 0.3s;
-            border-bottom: 2px solid transparent;
+            position: relative;
         }
 
         .tab-btn:hover {
-            background: rgba(255, 255, 255, 0.05);
             color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.03);
         }
 
         .tab-btn.active {
-            color: var(--neon-cyan);
-            border-bottom-color: var(--neon-cyan);
-            background: rgba(0, 245, 255, 0.05);
+            color: var(--neon-blue);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--neon-blue);
         }
 
         .tab-content {
             display: none;
-            padding: 25px;
+            padding: 24px;
         }
 
         .tab-content.active {
             display: block;
         }
 
-        /* Form & Buttons */
+        /* Form Styles */
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -169,7 +329,7 @@
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .form-group label {
@@ -182,10 +342,10 @@
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 12px 15px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.05);
             color: var(--text-primary);
             font-size: 0.95rem;
         }
@@ -193,30 +353,49 @@
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: var(--neon-cyan);
-            box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.1);
+            border-color: var(--neon-blue);
         }
 
+        /* Buttons */
         .btn {
             padding: 12px 24px;
             border-radius: 10px;
-            font-weight: 500;
+            border: none;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            border: none;
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
 
-        .btn-success {
-            background: var(--neon-green);
-            color: var(--bg-primary);
+        .btn-primary {
+            background: var(--neon-blue);
+            color: white;
         }
 
-        .btn-primary {
-            background: var(--neon-cyan);
-            color: var(--bg-primary);
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: var(--neon-green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-warning {
+            background: var(--neon-orange);
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
         }
 
         .btn-secondary {
@@ -225,21 +404,10 @@
             border: 1px solid var(--border-color);
         }
 
-        .btn-danger {
-            background: var(--neon-pink);
-            color: white;
-        }
-
-        .btn-warning {
-            background: var(--neon-orange);
-            color: white;
-        }
-
-        /* Data Table */
+        /* Table */
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
         }
 
         .data-table th {
@@ -290,15 +458,32 @@
             color: #ef4444;
         }
 
+        /* Filter Bar */
+        .filter-bar {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .filter-bar select,
+        .filter-bar input {
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            min-width: 150px;
+        }
+
         /* Action Buttons */
         .action-btn {
-            padding: 6px 12px;
+            padding: 6px 10px;
             border-radius: 6px;
             border: none;
             cursor: pointer;
             font-size: 0.85rem;
-            margin: 0 2px;
-            transition: all 0.2s;
         }
 
         .action-btn.print {
@@ -325,7 +510,7 @@
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.7);
-            z-index: 2000;
+            z-index: 1000;
             align-items: center;
             justify-content: center;
         }
@@ -337,46 +522,32 @@
         .modal-content {
             background: var(--bg-card);
             border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
             width: 90%;
-            max-width: 600px;
             max-height: 90vh;
             overflow-y: auto;
             border: 1px solid var(--border-color);
         }
 
         .modal-header {
-            padding: 20px;
-            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--text-primary);
         }
 
         .modal-close {
             background: none;
             border: none;
-            font-size: 1.5rem;
             color: var(--text-secondary);
+            font-size: 1.5rem;
             cursor: pointer;
-        }
-
-        /* Filter Bar */
-        .filter-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        .filter-bar input,
-        .filter-bar select {
-            flex: 1;
-            min-width: 150px;
-            padding: 10px 15px;
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-primary);
         }
 
         /* Loading */
@@ -397,19 +568,23 @@
             }
         }
 
-        /* Responsive */
         @media (max-width: 992px) {
             .sidebar {
                 transform: translateX(-100%);
-                transition: transform 0.3s;
+                transition: transform 0.3s ease;
             }
 
             .sidebar.show {
                 transform: translateX(0);
             }
 
+            .sidebar-overlay.show {
+                display: block;
+            }
+
             .main-content {
                 margin-left: 0;
+                padding-bottom: 80px;
             }
         }
     </style>
@@ -421,63 +596,81 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <a href="dashboard.html" class="sidebar-brand text-decoration-none">
-                <div class="sidebar-brand-icon d-inline-flex p-2 rounded shadow-sm text-white me-2">
-                    <i class="fas fa-network-wired"></i>
-                </div>
-                <div class="sidebar-brand-text d-inline-block align-middle fw-bold">
-                    ACS-Lite<small class="d-block fw-normal opacity-75" style="font-size: 0.7rem;">ISP Billing
+            <a href="dashboard.html" class="sidebar-brand">
+                <div class="brand-icon"><i class="fas fa-bolt"></i></div>
+                <div class="brand-text">
+                    ACS-Lite
+                    <small style="display: block; font-size: 0.7rem; font-weight: normal; opacity: 0.75;">ISP Billing
                         System</small>
                 </div>
             </a>
         </div>
-        <nav class="sidebar-menu p-3">
-            <div class="menu-label mb-2">Menu Utama</div>
-            <a href="dashboard.html"
-                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+        <nav class="sidebar-menu">
+            <div class="menu-label">Menu Utama</div>
+            <a href="dashboard.html" class="menu-item">
                 <i class="fas fa-home"></i><span>Dashboard</span>
             </a>
-            <a href="customers.html"
-                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
-                <i class="fas fa-users"></i><span>Pelanggan</span>
-            </a>
 
-            <div class="menu-label mb-2 mt-3">Manajemen Jaringan</div>
-            <a href="acs.html" class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+            <div class="menu-label" style="margin-top: 15px;">ISP Billing</div>
+            <div class="menu-item-parent" onclick="toggleSubmenu(this)">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Billing</span>
+                <i class="fas fa-chevron-right menu-arrow" style="margin-left: auto; font-size: 0.8rem;"></i>
+            </div>
+            <div class="menu-submenu">
+                <a href="packages.html" class="submenu-item">
+                    <i class="fas fa-cube"></i><span>Paket</span>
+                </a>
+                <a href="customers.html" class="submenu-item">
+                    <i class="fas fa-users"></i><span>Pelanggan</span>
+                </a>
+                <a href="invoices.html" class="submenu-item">
+                    <i class="fas fa-file-invoice"></i><span>Invoice</span>
+                </a>
+                <a href="payments.html" class="submenu-item">
+                    <i class="fas fa-money-bill-wave"></i><span>Pembayaran</span>
+                </a>
+            </div>
+
+            <div class="menu-label" style="margin-top: 15px;">Manajemen Jaringan</div>
+            <a href="acs.html" class="menu-item">
                 <i class="fas fa-microchip"></i><span>ACS / TR-069</span>
             </a>
-            <a href="mikrotik.html"
-                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
-                <i class="fas fa-server"></i><span>MikroTik</span>
+            <a href="mikrotik.html" class="menu-item">
+                <i class="fas fa-server"></i><span>MikroTik PPPoE</span>
             </a>
-            <a href="hotspot.html"
-                class="menu-item active d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+            <a href="hotspot.html" class="menu-item active">
                 <i class="fas fa-ticket-alt"></i><span>Hotspot Voucher</span>
             </a>
-            <a href="map.html" class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
-                <i class="fas fa-map-marked-alt"></i><span>Peta ONU</span>
+            <a href="map.html" class="menu-item">
+                <i class="fas fa-map-marker-alt"></i><span>Peta Jaringan</span>
             </a>
 
-            <div class="menu-label mb-2 mt-3">Pengaturan</div>
-            <a href="settings.html"
-                class="menu-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none mb-1">
+            <div class="menu-label" style="margin-top: 15px;">Data & Laporan</div>
+            <a href="reports.html" class="menu-item">
+                <i class="fas fa-chart-bar"></i><span>Laporan</span>
+            </a>
+
+            <div class="menu-label" style="margin-top: 15px;">Sistem</div>
+            <a href="settings.html" class="menu-item">
                 <i class="fas fa-cog"></i><span>Pengaturan</span>
+            </a>
+            <a href="db_admin.html" class="menu-item">
+                <i class="fas fa-database"></i><span>Database Admin</span>
+            </a>
+            <a href="javascript:void(0)" onclick="logout()" class="menu-item">
+                <i class="fas fa-sign-out-alt"></i><span>Logout</span>
             </a>
         </nav>
     </aside>
 
     <!-- Main Content -->
     <main class="main-content">
-        <div class="page-header mb-4 d-flex justify-content-between align-items-center">
-            <div>
-                <h2 style="color: var(--text-primary); margin: 0;">
-                    <i class="fas fa-ticket-alt" style="color: var(--neon-orange);"></i> Hotspot Voucher
-                </h2>
-                <p style="color: var(--text-secondary); margin: 8px 0 0;">Mikhmon-style Voucher Management</p>
-            </div>
-            <button class="btn btn-success" onclick="openGenerateModal()">
-                <i class="fas fa-plus-circle"></i> Generate Voucher
-            </button>
+        <div class="page-header mb-4">
+            <h2 style="color: var(--text-primary); margin: 0;">
+                <i class="fas fa-ticket-alt" style="color: var(--neon-orange);"></i> Hotspot Voucher
+            </h2>
+            <p style="color: var(--text-secondary); margin: 8px 0 0;">Mikhmon-style Voucher Management</p>
         </div>
 
         <!-- Stats Cards -->
@@ -507,7 +700,10 @@
         <!-- Tabs -->
         <div class="tabs-container">
             <div class="tabs-header">
-                <button class="tab-btn active" onclick="switchTab('list')">
+                <button class="tab-btn active" onclick="switchTab('generate')">
+                    <i class="fas fa-plus-circle"></i> Generate Voucher
+                </button>
+                <button class="tab-btn" onclick="switchTab('list')">
                     <i class="fas fa-list"></i> Daftar Voucher
                 </button>
                 <button class="tab-btn" onclick="switchTab('profiles')">
@@ -518,11 +714,67 @@
                 </button>
             </div>
 
-            <!-- Tab: Voucher List -->
-            <div class="tab-content active" id="tab-list">
-                <!-- Generated Result Section (Hidden initially) -->
-                <div id="generated-result"
-                    style="display: none; margin-bottom: 30px; background: var(--bg-primary); padding: 20px; border-radius: 12px; border: 1px solid var(--neon-green);">
+            <!-- Tab: Generate Voucher -->
+            <div class="tab-content active" id="tab-generate">
+                <h4 style="color: var(--text-primary); margin-bottom: 20px;">
+                    <i class="fas fa-magic"></i> Generate Voucher Baru
+                </h4>
+                <form id="generateForm" onsubmit="generateVouchers(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Profile Hotspot *</label>
+                            <select id="gen-profile" required>
+                                <option value="">-- Pilih Profile --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Jumlah Voucher *</label>
+                            <input type="number" id="gen-quantity" value="10" min="1" max="500" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Prefix Username</label>
+                            <input type="text" id="gen-prefix" placeholder="contoh: 3JAM-" maxlength="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Panjang Kode</label>
+                            <select id="gen-length">
+                                <option value="4">4 Karakter</option>
+                                <option value="5">5 Karakter</option>
+                                <option value="6" selected>6 Karakter</option>
+                                <option value="8">8 Karakter</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Karakter Kode</label>
+                            <select id="gen-charset">
+                                <option value="ALPHANUMERIC">Huruf + Angka</option>
+                                <option value="UPPERCASE">Huruf Besar</option>
+                                <option value="NUMBERS">Angka Saja</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <select id="gen-password">
+                                <option value="same_as_code">Sama dengan Kode</option>
+                                <option value="same_as_username">Sama dengan Username</option>
+                                <option value="random">Random</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="custom-password-group" style="display: none;">
+                        <label>Custom Password</label>
+                        <input type="text" id="gen-custom-password" placeholder="Masukkan password custom">
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-magic"></i> Generate Voucher
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Generated Result -->
+                <div id="generated-result" style="display: none; margin-top: 30px;">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h4 style="color: var(--text-primary); margin: 0;">
@@ -532,10 +784,6 @@
                         <div>
                             <button class="btn btn-primary" onclick="printVouchers()">
                                 <i class="fas fa-print"></i> Print Voucher
-                            </button>
-                            <button class="btn btn-secondary ms-2"
-                                onclick="document.getElementById('generated-result').style.display='none'">
-                                <i class="fas fa-times"></i> Tutup
                             </button>
                         </div>
                     </div>
@@ -555,11 +803,10 @@
                         </table>
                     </div>
                 </div>
+            </div>
 
-                <!-- Filter Bar -->
-
-
-
+            <!-- Tab: Voucher List -->
+            <div class="tab-content" id="tab-list">
                 <div class="filter-bar">
                     <select id="filter-profile" onchange="loadVouchers()">
                         <option value="">Semua Profile</option>
@@ -768,110 +1015,255 @@
         </div>
     </div>
 
-    <!-- Generate Voucher Modal -->
-    <div class="modal fade" id="generateModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header" style="background: linear-gradient(135deg, #10b981, #059669);">
-                    <h5 class="modal-title" style="color: white;"><i class="fas fa-magic me-2"></i>Generate Voucher</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="generateForm" onsubmit="generateVouchers(event)">
-                        <div class="mb-3">
-                            <label class="form-label">Profile Hotspot *</label>
-                            <select id="gen-profile" class="form-select" required>
-                                <option value="">-- Pilih Profile --</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <div class="col-6 mb-3">
-                                <label class="form-label">Jumlah</label>
-                                <input type="number" id="gen-quantity" class="form-control" value="10" min="1" max="500"
-                                    required>
-                            </div>
-                            <div class="col-6 mb-3">
-                                <label class="form-label">Prefix</label>
-                                <input type="text" id="gen-prefix" class="form-control" placeholder="cth: GUEST-"
-                                    maxlength="10">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-6 mb-3">
-                                <label class="form-label">Panjang Kode</label>
-                                <select id="gen-length" class="form-select">
-                                    <option value="4">4 Karakter</option>
-                                    <option value="5">5 Karakter</option>
-                                    <option value="6" selected>6 Karakter</option>
-                                    <option value="8">8 Karakter</option>
-                                </select>
-                            </div>
-                            <div class="col-6 mb-3">
-                                <label class="form-label">Jenis Kode</label>
-                                <select id="gen-charset" class="form-select">
-                                    <option value="ALPHANUMERIC">Huruf + Angka</option>
-                                    <option value="UPPERCASE">Huruf Besar</option>
-                                    <option value="NUMBERS">Angka Saja</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <select id="gen-password" class="form-select">
-                                <option value="same_as_code">Sama dengan Kode</option>
-                                <option value="same_as_username">Sama dengan Username</option>
-                                <option value="random">Random</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                        </div>
-                        <div class="mb-3" id="custom-password-group" style="display: none;">
-                            <label class="form-label">Custom Password</label>
-                            <input type="text" id="gen-custom-password" class="form-control"
-                                placeholder="Masukkan password custom">
-                        </div>
-
-                        <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-magic me-2"></i> Generate Voucher
-                            </button>
-                        </div>
-                    </form>
-                </div>
+    <!-- Edit Profile Modal -->
+    <div class="modal-overlay" id="editProfileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Edit Profile</h3>
+                <button class="modal-close" onclick="closeModal('editProfileModal')">&times;</button>
             </div>
+            <form onsubmit="saveEditProfile(event)">
+                <div class="form-group">
+                    <label>Nama Profile</label>
+                    <input type="text" id="edit-profile-name" readonly
+                        style="background: var(--bg-secondary); opacity: 0.7;">
+                </div>
+                <div class="form-group">
+                    <label>Harga (Rp)</label>
+                    <input type="number" id="edit-profile-price" min="0" step="1000" required>
+                </div>
+                <div class="form-group">
+                    <label>Durasi</label>
+                    <input type="text" id="edit-profile-duration" placeholder="contoh: 1h, 3h, 1d, 7d" required>
+                </div>
+                <div class="form-group">
+                    <label>Rate Limit</label>
+                    <input type="text" id="edit-profile-rate" placeholder="contoh: 1M/1M, 2M/2M">
+                </div>
+                <div class="form-group">
+                    <label>Tipe Validitas</label>
+                    <select id="edit-profile-validity">
+                        <option value="uptime">Uptime (Waktu Pemakaian)</option>
+                        <option value="calendar">Calendar (Waktu Kalender)</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('editProfileModal')">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Simpan Perubahan
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="acs-auth.js"></script>
     <script src="theme-toggle.js"></script>
     <script src="bottom-nav.js"></script>
     <script>
-        const API_BASE = '/api/voucher_api.php';
-        const MIKROTIK_API = '/api/mikrotik_api.php';
+        // PHP API server runs on port 8888
+        const API_BASE = `http://${window.location.hostname}:8888/api/voucher_api.php`;
+        const MIKROTIK_API = `http://${window.location.hostname}:8888/api/mikrotik_api.php`;
+        const RADIUS_API = `http://${window.location.hostname}:8888/api/radius_api.php`;
         let generatedVouchers = [];
         let selectedVouchers = [];
         let searchTimeout;
-        let generateModal;
 
-        // Check if user is logged in
-        function checkSession() {
-            const session = sessionStorage.getItem('acs_session');
-            if (!session) {
-                window.location.href = 'login.html';
-                return false;
+        // Toggle sidebar for mobile
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('show');
+            document.getElementById('sidebar-overlay').classList.toggle('show');
+        }
+
+        // Toggle submenu
+        function toggleSubmenu(element) {
+            element.classList.toggle('open');
+            const submenu = element.nextElementSibling;
+            if (submenu && submenu.classList.contains('menu-submenu')) {
+                submenu.classList.toggle('show');
             }
-            return true;
+        }
+
+        // Logout function
+        function logout() {
+            if (confirm('Apakah Anda yakin ingin logout?')) {
+                sessionStorage.removeItem('acs_session');
+                localStorage.removeItem('acs_token');
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Load profiles list for Profiles tab
+        async function loadProfilesList() {
+            const tbody = document.getElementById('profile-list-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading"><i class="fas fa-spinner"></i> Memuat...</td></tr>';
+
+            try {
+                const res = await fetch(API_BASE + '?action=get_profiles');
+                const data = await res.json();
+
+                if (data.success && data.profiles && data.profiles.length > 0) {
+                    tbody.innerHTML = data.profiles.map(p => `
+                        <tr>
+                            <td><strong>${p.name}</strong></td>
+                            <td>Rp ${formatNumber(p.price || 0)}</td>
+                            <td>${p.duration || '-'}</td>
+                            <td>${p.rate_limit || '-'}</td>
+                            <td><span class="badge badge-${p.validity_type === 'uptime' ? 'unused' : 'active'}">${p.validity_type || 'uptime'}</span></td>
+                            <td>
+                                <button class="action-btn print" onclick="editProfile('${p.name}')" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="action-btn delete" onclick="deleteProfile('${p.name}')" title="Hapus">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Belum ada profile. Klik "Tambah Profile" untuk membuat.</td></tr>';
+                }
+            } catch (e) {
+                console.error('Failed to load profiles:', e);
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444;">Gagal memuat data profile</td></tr>';
+            }
+        }
+
+        // Load sales data for Sales tab
+        async function loadSales() {
+            const tbody = document.getElementById('sales-list-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading"><i class="fas fa-spinner"></i> Memuat...</td></tr>';
+
+            const dateFrom = document.getElementById('sales-date-from').value;
+            const dateTo = document.getElementById('sales-date-to').value;
+
+            try {
+                let url = API_BASE + '?action=sales_history';
+                if (dateFrom) url += '&date_from=' + dateFrom;
+                if (dateTo) url += '&date_to=' + dateTo;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.success && data.sales && data.sales.length > 0) {
+                    tbody.innerHTML = data.sales.map(s => `
+                        <tr>
+                            <td>${formatDate(s.sold_date)}</td>
+                            <td><strong>${s.username}</strong></td>
+                            <td>${s.profile}</td>
+                            <td>Rp ${formatNumber(s.actual_price || s.price || 0)}</td>
+                            <td>${s.customer_name || '-'}</td>
+                            <td><span class="badge badge-unused">${s.payment_method || 'cash'}</span></td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Tidak ada data penjualan</td></tr>';
+                }
+            } catch (e) {
+                console.error('Failed to load sales:', e);
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444;">Gagal memuat data penjualan</td></tr>';
+            }
+        }
+
+        // Edit profile - open modal with profile data
+        async function editProfile(name) {
+            try {
+                // Get profile data
+                const res = await fetch(API_BASE + '?action=get_profiles');
+                const data = await res.json();
+
+                if (data.success && data.profiles) {
+                    const profile = data.profiles.find(p => p.name === name);
+                    if (profile) {
+                        document.getElementById('edit-profile-name').value = profile.name;
+                        document.getElementById('edit-profile-price').value = profile.price || 0;
+                        document.getElementById('edit-profile-duration').value = profile.duration || '';
+                        document.getElementById('edit-profile-rate').value = profile.rate_limit || '';
+                        document.getElementById('edit-profile-validity').value = profile.validity_type || 'uptime';
+
+                        openModal('editProfileModal');
+                    } else {
+                        alert('❌ Profile tidak ditemukan');
+                    }
+                }
+            } catch (e) {
+                console.error('Load profile error:', e);
+                alert('❌ Gagal memuat data profile');
+            }
+        }
+
+        // Save edited profile
+        async function saveEditProfile(e) {
+            e.preventDefault();
+
+            const data = {
+                name: document.getElementById('edit-profile-name').value,
+                price: parseFloat(document.getElementById('edit-profile-price').value),
+                duration: document.getElementById('edit-profile-duration').value,
+                rate_limit: document.getElementById('edit-profile-rate').value,
+                validity_type: document.getElementById('edit-profile-validity').value
+            };
+
+            try {
+                const res = await fetch(API_BASE + '?action=update_profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    alert('✅ Profile berhasil diupdate');
+                    closeModal('editProfileModal');
+                    loadProfilesList();
+                    loadProfiles();
+                } else {
+                    alert('❌ Gagal: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error('Update profile error:', e);
+                alert('❌ Error: ' + e.message);
+            }
+        }
+
+        // Delete profile
+        async function deleteProfile(name) {
+            if (!confirm(`Hapus profile "${name}"? Pastikan tidak ada voucher yang menggunakan profile ini.`)) return;
+
+            try {
+                const res = await fetch(API_BASE + '?action=delete_profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    alert('✅ Profile berhasil dihapus');
+                    loadProfilesList();
+                    loadProfiles(); // Refresh dropdown juga
+                } else {
+                    alert('❌ Gagal: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error('Delete profile error:', e);
+                alert('❌ Error: ' + e.message);
+            }
+        }
+
+        // Format date helper
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
         }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Check session first
-            if (!checkSession()) return;
-
             loadStats();
             loadProfiles();
             loadVouchers();
-            generateModal = new bootstrap.Modal(document.getElementById('generateModal'));
 
             // Password option handler
             document.getElementById('gen-password').addEventListener('change', function () {
@@ -880,46 +1272,23 @@
             });
         });
 
-        function openGenerateModal() {
-            generateModal.show();
-        }
-
         // Tab switching
         function switchTab(tabName) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-            // Handle event safely
-            const buttons = document.querySelectorAll('.tab-btn');
-            buttons.forEach(b => {
-                if (b.onclick && b.onclick.toString().includes(tabName)) {
-                    b.classList.add('active');
-                }
-            });
-
-            const targetTab = document.getElementById('tab-' + tabName);
-            if (targetTab) targetTab.classList.add('active');
+            event.target.closest('.tab-btn').classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
 
             if (tabName === 'list') loadVouchers();
             if (tabName === 'profiles') loadProfilesList();
             if (tabName === 'sales') loadSales();
         }
 
-        async function loadProfilesList() {
-            // Placeholder for Profile Management Tab
-            console.log('Loading Profiles List...');
-        }
-
-        async function loadSales() {
-            // Placeholder for Sales Report Tab
-            console.log('Loading Sales Report...');
-        }
-
-        // Load statistics
         // Load statistics
         async function loadStats() {
             try {
-                const res = await fetch(API_BASE + '?action=stats', { headers: ACSAuth.getHeaders() });
+                const res = await fetch(API_BASE + '?action=stats');
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('stat-unused').textContent = data.by_status?.unused || 0;
@@ -932,55 +1301,27 @@
             }
         }
 
-        // Load profiles for dropdown (Direct from MikroTik via MIKROTIK_API)
+        // Load profiles for dropdown
         async function loadProfiles() {
             try {
-                // Use mikrotik_api.php to get hotspot_profiles (Consistent with mikrotik.html)
-                const res = await fetch(MIKROTIK_API + '?action=hotspot_profiles', { headers: ACSAuth.getHeaders() });
+                const res = await fetch(API_BASE + '?action=get_profiles');
                 const data = await res.json();
-
                 if (data.success && data.profiles) {
                     const selects = ['gen-profile', 'filter-profile'];
                     selects.forEach(id => {
                         const select = document.getElementById(id);
-                        if (!select) return;
-
                         const currentValue = select.value;
                         select.innerHTML = id === 'filter-profile'
                             ? '<option value="">Semua Profile</option>'
-                            : '<option value="">-- Pilih Profile (MikroTik) --</option>';
-
+                            : '<option value="">-- Pilih Profile --</option>';
                         data.profiles.forEach(p => {
-                            // Display format: Name (Session: 1h, Rate: 1M/1M)
-                            // Matching informative style from packages.html but specific to hotspot
-                            let label = p.name;
-                            let details = [];
-
-                            if (p['session-timeout']) details.push(p['session-timeout']);
-                            if (p['rate-limit']) details.push(p['rate-limit']);
-
-                            if (details.length > 0) label += ` (${details.join(', ')})`;
-
-                            select.innerHTML += `<option value="${p.name}">${label}</option>`;
+                            select.innerHTML += `<option value="${p.name}">${p.name} - Rp ${formatNumber(p.price)} (${p.duration})</option>`;
                         });
-
-                        if (currentValue) select.value = currentValue;
+                        select.value = currentValue;
                     });
                 }
             } catch (e) {
                 console.error('Failed to load profiles:', e);
-                // Fallback attempt to local DB via Voucher API if MikroTik API fails
-                try {
-                    const res = await fetch(API_BASE + '?action=get_profiles', { headers: ACSAuth.getHeaders() });
-                    const data = await res.json();
-                    if (data.success && data.profiles) {
-                        const select = document.getElementById('gen-profile');
-                        select.innerHTML = '<option value="">-- Pilih Profile (DB) --</option>';
-                        data.profiles.forEach(p => {
-                            select.innerHTML += `<option value="${p.name}">${p.name}</option>`;
-                        });
-                    }
-                } catch (err) { }
             }
         }
 
@@ -1001,22 +1342,15 @@
             try {
                 const res = await fetch(API_BASE + '?action=generate', {
                     method: 'POST',
-                    headers: ACSAuth.getHeaders(),
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
                 const result = await res.json();
 
                 if (result.success) {
-                    generateModal.hide(); // Hide modal
-
                     generatedVouchers = result.vouchers;
                     displayGeneratedVouchers(result.vouchers);
-
-                    // Show result section
-                    document.getElementById('generated-result').style.display = 'block';
-
                     loadStats();
-                    loadVouchers(); // Refresh list
 
                     // Show sync status
                     let message = `Berhasil membuat ${result.vouchers.length} voucher!`;
@@ -1066,7 +1400,7 @@
 
             try {
                 const params = new URLSearchParams({ action: 'list', profile, status, search });
-                const res = await fetch(API_BASE + '?' + params, { headers: ACSAuth.getHeaders() });
+                const res = await fetch(API_BASE + '?' + params);
                 const data = await res.json();
 
                 const tbody = document.getElementById('voucher-list-body');
@@ -1286,7 +1620,7 @@
             try {
                 const res = await fetch(API_BASE + '?action=delete_voucher', {
                     method: 'POST',
-                    headers: ACSAuth.getHeaders(),
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ voucher_id: id })
                 });
                 const result = await res.json();

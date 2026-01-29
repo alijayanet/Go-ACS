@@ -35,6 +35,9 @@ require_once __DIR__ . '/MikroTikAPI.php';
 // ========================================
 $CONFIG_FILE = __DIR__ . '/../data/mikrotik.json';
 
+$SETTINGS_FILE = __DIR__ . '/../data/settings.json';
+$RADIUS_CLIENTS_FILE = __DIR__ . '/../data/radius_clients.json';
+
 function loadConfig() {
     global $CONFIG_FILE;
     
@@ -69,6 +72,80 @@ function jsonResponse($data, $status = 200) {
     http_response_code($status);
     echo json_encode($data, JSON_PRETTY_PRINT);
     exit;
+}
+
+function loadSettingsFile() {
+    global $SETTINGS_FILE;
+    if (file_exists($SETTINGS_FILE)) {
+        return json_decode(file_get_contents($SETTINGS_FILE), true) ?: [];
+    }
+    return [];
+}
+
+function loadRadiusClients() {
+    global $RADIUS_CLIENTS_FILE;
+    if (file_exists($RADIUS_CLIENTS_FILE)) {
+        return json_decode(file_get_contents($RADIUS_CLIENTS_FILE), true) ?: [];
+    }
+    return [];
+}
+
+function normalizeIp($ipOrCidr) {
+    $ipOrCidr = trim((string)$ipOrCidr);
+    if ($ipOrCidr === '') return '';
+    $parts = explode('/', $ipOrCidr, 2);
+    return trim($parts[0]);
+}
+
+function guessRadiusSecretForRouter($routerIp) {
+    $routerIp = normalizeIp($routerIp);
+    if ($routerIp === '') return '';
+
+    $data = loadRadiusClients();
+    $clients = $data['clients'] ?? [];
+    foreach ($clients as $c) {
+        $clientIp = normalizeIp($c['ip'] ?? '');
+        if ($clientIp !== '' && $clientIp === $routerIp) {
+            return (string)($c['secret'] ?? '');
+        }
+    }
+    return '';
+}
+
+function mtHasTrap($resp) {
+    if (!is_array($resp)) return true;
+    foreach ($resp as $item) {
+        if (is_array($item) && isset($item['!error'])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function mtTrapMessage($resp) {
+    if (!is_array($resp)) return 'Unknown RouterOS error';
+    foreach ($resp as $item) {
+        if (is_array($item) && isset($item['!error'])) {
+            return $item['=message'] ?? 'RouterOS error';
+        }
+    }
+    return 'RouterOS error';
+}
+
+function mtDone($resp) {
+    return is_array($resp) && in_array('!done', $resp, true) && !mtHasTrap($resp);
+}
+
+function serverIpGuess() {
+    if (!empty($_SERVER['SERVER_ADDR'])) {
+        return $_SERVER['SERVER_ADDR'];
+    }
+    $h = gethostname();
+    if ($h) {
+        $ip = gethostbyname($h);
+        if ($ip && $ip !== $h) return $ip;
+    }
+    return '';
 }
 
 function getRouter($routerId = null) {
@@ -430,6 +507,244 @@ try {
             $result['api']->disconnect();
             
             jsonResponse(['success' => true, 'profiles' => $profiles, 'count' => count($profiles)]);
+            break;
+
+        // ---- APPLY RADIUS CONFIG FOR HOTSPOT ----
+        case 'apply_radius_hotspot':
+            $result = connectToRouter($routerId);
+            if (isset($result['error'])) {
+                jsonResponse(['success' => false, 'error' => $result['error']], 500);
+            }
+
+            $api = $result['api'];
+            $router = $result['router'];
+
+            $radiusIp = trim((string)($input['radius_ip'] ?? ''));
+            if ($radiusIp === '') {
+                $radiusIp = serverIpGuess();
+            }
+            if ($radiusIp === '') {
+                $api->disconnect();
+                jsonResponse(['success' => false, 'error' => 'Cannot determine RADIUS server IP. Provide radius_ip.'], 400);
+            }
+
+            $secret = (string)($input['radius_secret'] ?? '');
+            if ($secret === '') {
+                $secret = guessRadiusSecretForRouter($router['ip'] ?? '');
+            }
+            if ($secret === '') {
+                $api->disconnect();
+                jsonResponse(['success' => false, 'error' => 'RADIUS secret not found. Add NAS client for this router IP in RADIUS Manager, or provide radius_secret.'], 400);
+            }
+
+            $authPort = (int)($input['auth_port'] ?? 1812);
+            $acctPort = (int)($input['acct_port'] ?? 1813);
+
+            // 1) Upsert /radius server for hotspot
+            $existing = $api->command([
+                '/radius/print',
+                '?address=' . $radiusIp
+            ]);
+
+            $radiusId = '';
+            if (is_array($existing)) {
+                foreach ($existing as $item) {
+                    if (!is_array($item)) continue;
+                    $addr = $item['=address'] ?? '';
+                    if ($addr !== $radiusIp) continue;
+                    $svc = (string)($item['=service'] ?? '');
+                    if ($svc === 'hotspot' || strpos($svc, 'hotspot') !== false) {
+                        $radiusId = (string)($item['=.id'] ?? '');
+                        break;
+                    }
+                }
+            }
+
+            if ($radiusId !== '') {
+                $resp = $api->command([
+                    '/radius/set',
+                    '=.id=' . $radiusId,
+                    '=secret=' . $secret,
+                    '=authentication-port=' . $authPort,
+                    '=accounting-port=' . $acctPort
+                ]);
+                if (!mtDone($resp)) {
+                    $err = mtTrapMessage($resp);
+                    $api->disconnect();
+                    jsonResponse(['success' => false, 'error' => 'Failed to update /radius: ' . $err], 500);
+                }
+            } else {
+                $resp = $api->command([
+                    '/radius/add',
+                    '=service=hotspot',
+                    '=address=' . $radiusIp,
+                    '=secret=' . $secret,
+                    '=authentication-port=' . $authPort,
+                    '=accounting-port=' . $acctPort,
+                    '=comment=ACS-Lite'
+                ]);
+                if (!mtDone($resp)) {
+                    $err = mtTrapMessage($resp);
+                    $api->disconnect();
+                    jsonResponse(['success' => false, 'error' => 'Failed to add /radius: ' . $err], 500);
+                }
+            }
+
+            // 2) Enable use-radius on hotspot server profiles
+            $profiles = $api->command(['/ip/hotspot/profile/print']);
+            $applied = 0;
+            if (is_array($profiles)) {
+                foreach ($profiles as $p) {
+                    if (!is_array($p) || empty($p['=.id'])) continue;
+                    $pid = $p['=.id'];
+                    $resp = $api->command([
+                        '/ip/hotspot/profile/set',
+                        '=.id=' . $pid,
+                        '=use-radius=yes',
+                        '=radius-accounting=yes'
+                    ]);
+                    if (!mtDone($resp)) {
+                        // Continue, but report last error
+                        continue;
+                    }
+                    $applied++;
+                }
+            }
+
+            $api->disconnect();
+
+            jsonResponse([
+                'success' => true,
+                'message' => 'RADIUS applied to MikroTik hotspot',
+                'router' => [
+                    'id' => $router['id'] ?? '',
+                    'name' => $router['name'] ?? '',
+                    'ip' => $router['ip'] ?? ''
+                ],
+                'radius' => [
+                    'address' => $radiusIp,
+                    'auth_port' => $authPort,
+                    'acct_port' => $acctPort
+                ],
+                'hotspot_profiles_updated' => $applied
+            ]);
+            break;
+
+        // ---- APPLY RADIUS CONFIG FOR PPPOE ----
+        case 'apply_radius_pppoe':
+            $result = connectToRouter($routerId);
+            if (isset($result['error'])) {
+                jsonResponse(['success' => false, 'error' => $result['error']], 500);
+            }
+
+            $api = $result['api'];
+            $router = $result['router'];
+
+            $radiusIp = trim((string)($input['radius_ip'] ?? ''));
+            if ($radiusIp === '') {
+                $radiusIp = serverIpGuess();
+            }
+            if ($radiusIp === '') {
+                $api->disconnect();
+                jsonResponse(['success' => false, 'error' => 'Cannot determine RADIUS server IP. Provide radius_ip.'], 400);
+            }
+
+            $secret = (string)($input['radius_secret'] ?? '');
+            if ($secret === '') {
+                $secret = guessRadiusSecretForRouter($router['ip'] ?? '');
+            }
+            if ($secret === '') {
+                $api->disconnect();
+                jsonResponse(['success' => false, 'error' => 'RADIUS secret not found. Add NAS client for this router IP in RADIUS Manager, or provide radius_secret.'], 400);
+            }
+
+            $authPort = (int)($input['auth_port'] ?? 1812);
+            $acctPort = (int)($input['acct_port'] ?? 1813);
+            $enableAccounting = (bool)($input['enable_accounting'] ?? true);
+
+            // 1) Upsert /radius server for ppp
+            $existing = $api->command([
+                '/radius/print',
+                '?address=' . $radiusIp
+            ]);
+
+            $radiusId = '';
+            if (is_array($existing)) {
+                foreach ($existing as $item) {
+                    if (!is_array($item)) continue;
+                    $addr = $item['=address'] ?? '';
+                    if ($addr !== $radiusIp) continue;
+                    $svc = (string)($item['=service'] ?? '');
+                    if ($svc === 'ppp' || strpos($svc, 'ppp') !== false) {
+                        $radiusId = (string)($item['=.id'] ?? '');
+                        break;
+                    }
+                }
+            }
+
+            if ($radiusId !== '') {
+                $resp = $api->command([
+                    '/radius/set',
+                    '=.id=' . $radiusId,
+                    '=secret=' . $secret,
+                    '=authentication-port=' . $authPort,
+                    '=accounting-port=' . $acctPort
+                ]);
+                if (!mtDone($resp)) {
+                    $err = mtTrapMessage($resp);
+                    $api->disconnect();
+                    jsonResponse(['success' => false, 'error' => 'Failed to update /radius: ' . $err], 500);
+                }
+            } else {
+                $resp = $api->command([
+                    '/radius/add',
+                    '=service=ppp',
+                    '=address=' . $radiusIp,
+                    '=secret=' . $secret,
+                    '=authentication-port=' . $authPort,
+                    '=accounting-port=' . $acctPort,
+                    '=comment=ACS-Lite'
+                ]);
+                if (!mtDone($resp)) {
+                    $err = mtTrapMessage($resp);
+                    $api->disconnect();
+                    jsonResponse(['success' => false, 'error' => 'Failed to add /radius: ' . $err], 500);
+                }
+            }
+
+            // 2) Enable PPP AAA use-radius
+            $aaaCmd = [
+                '/ppp/aaa/set',
+                '=use-radius=yes'
+            ];
+            if ($enableAccounting) {
+                $aaaCmd[] = '=accounting=yes';
+            }
+            $resp = $api->command($aaaCmd);
+            if (!mtDone($resp)) {
+                $err = mtTrapMessage($resp);
+                $api->disconnect();
+                jsonResponse(['success' => false, 'error' => 'Failed to set /ppp/aaa: ' . $err], 500);
+            }
+
+            $api->disconnect();
+
+            jsonResponse([
+                'success' => true,
+                'message' => 'RADIUS applied to MikroTik PPPoE',
+                'router' => [
+                    'id' => $router['id'] ?? '',
+                    'name' => $router['name'] ?? '',
+                    'ip' => $router['ip'] ?? ''
+                ],
+                'radius' => [
+                    'address' => $radiusIp,
+                    'auth_port' => $authPort,
+                    'acct_port' => $acctPort,
+                    'service' => 'ppp'
+                ],
+                'pppoe_accounting' => $enableAccounting
+            ]);
             break;
             
         // ---- ADD HOTSPOT USER ----
