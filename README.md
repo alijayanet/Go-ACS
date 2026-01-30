@@ -42,8 +42,8 @@ cd Go-ACS
 ### 2. Jalankan Installer
 
 ```bash
-chmod +x install.sh
-sudo ./install.sh
+chmod +x install-acslite.sh
+sudo ./install-acslite.sh
 ```
 
 Installer akan otomatis:
@@ -226,6 +226,7 @@ Jika project ini bermanfaat, jangan lupa berikan ⭐ di [GitHub](https://github.
   <b>Go-ACS</b> - TR-069 Auto Configuration Server<br>
   Dibuat dengan ❤️ untuk RT-RW Net Indonesia
 </p>
+
 
 
 
