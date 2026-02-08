@@ -66,10 +66,10 @@ Setelah instalasi selesai, akses melalui browser:
 
 ## 🔧 Konfigurasi
 
-### 🔐 Admin Credentials
-
-USER="admin"
-PASS="admin123"
+**Default credentials:**
+- Username: `admin`
+- Password: `admin123`
+- ApiKey: `secret`
 
 ✅ Go-ACS Installation Complete!
 
@@ -226,6 +226,7 @@ Jika project ini bermanfaat, jangan lupa berikan ⭐ di [GitHub](https://github.
   <b>Go-ACS</b> - TR-069 Auto Configuration Server<br>
   Dibuat dengan ❤️ untuk RT-RW Net Indonesia
 </p>
+
 
 
 
