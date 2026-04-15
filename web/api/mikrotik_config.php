@@ -7,7 +7,7 @@
 $mtConfig = [
     'host' => '192.168.8.1',        // MikroTik IP Address
     'user' => 'admin',              // MikroTik username
-    'password' => '1234',       // MikroTik password
+    'password' => '',       // MikroTik password
     'port' => 8728                  // API port (default 8728)
 ];
 

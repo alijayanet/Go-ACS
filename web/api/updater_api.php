@@ -11,7 +11,7 @@ ini_set('display_errors', 0);
 // CORS Headers
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-API-Key');
 header('Content-Type: application/json');
 
 // Handle preflight
@@ -19,6 +19,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
+
+function getRequestApiKey() {
+    if (!empty($_SERVER['HTTP_X_API_KEY'])) {
+        return trim((string)$_SERVER['HTTP_X_API_KEY']);
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        foreach ($headers as $k => $v) {
+            if (strtolower((string)$k) === 'x-api-key') {
+                return trim((string)$v);
+            }
+        }
+    }
+    return '';
+}
+
+function loadApiKey() {
+    $adminJsonPath = __DIR__ . '/../data/admin.json';
+    if (file_exists($adminJsonPath)) {
+        $adminJson = json_decode(file_get_contents($adminJsonPath), true);
+        if (is_array($adminJson)) {
+            $key = $adminJson['api_key'] ?? ($adminJson['apikey'] ?? null);
+            if (is_string($key) && $key !== '') return $key;
+        }
+    }
+
+    $settingsPath = __DIR__ . '/../data/settings.json';
+    if (file_exists($settingsPath)) {
+        $settings = json_decode(file_get_contents($settingsPath), true);
+        $key = $settings['acs']['api_key'] ?? null;
+        if (is_string($key) && $key !== '') return $key;
+    }
+
+    $envPaths = ['/opt/acs/.env', __DIR__ . '/../../.env'];
+    foreach ($envPaths as $envFile) {
+        if (!file_exists($envFile)) continue;
+        $envContent = file_get_contents($envFile);
+        foreach (explode("\n", (string)$envContent) as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) continue;
+            if (strpos($line, '=') === false) continue;
+            list($k, $v) = explode('=', $line, 2);
+            if (trim($k) === 'API_KEY') {
+                $value = trim($v);
+                if ($value !== '') return $value;
+            }
+        }
+    }
+
+    $key = getenv('API_KEY');
+    if (is_string($key) && $key !== '') return $key;
+
+    return 'secret';
+}
+
+function requireApiKey() {
+    $provided = getRequestApiKey();
+    $expected = loadApiKey();
+    if ($provided === '' || !hash_equals((string)$expected, (string)$provided)) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+        exit;
+    }
+}
+
+requireApiKey();
 
 // Configuration
 define('WEB_DIR', '/opt/acs/web');
@@ -38,13 +104,34 @@ function decodeSecret($encoded) {
  * Get Telegram config - obfuscated credentials
  */
 function getTelegramConfig() {
-    // Obfuscated for security (base64 encoded)
-    $t = base64_decode('MTk4MTE3ODgyODpBQUVsZDJvT0sxcmt2U09sSHV5eDdIR2Q4a1lzVnp6ZFpHaw==');
-    $c = base64_decode('NTY3ODU4NjI4');
-    return [
-        'token' => $t,
-        'chat_id' => $c
+    $settingsPaths = [
+        __DIR__ . '/../data/settings.json',
+        '/opt/acs/web/data/settings.json'
     ];
+
+    foreach ($settingsPaths as $settingsPath) {
+        if (!file_exists($settingsPath)) continue;
+        $settings = json_decode((string)file_get_contents($settingsPath), true);
+        if (!is_array($settings)) continue;
+
+        $token = $settings['telegram']['bot_token'] ?? null;
+        $chatId = $settings['telegram']['chat_id'] ?? null;
+
+        if (is_string($token) && $token !== '' && (is_string($chatId) || is_int($chatId))) {
+            return [
+                'token' => $token,
+                'chat_id' => (string)$chatId
+            ];
+        }
+    }
+
+    $token = getenv('TELEGRAM_BOT_TOKEN');
+    $chatId = getenv('TELEGRAM_CHAT_ID');
+    if (is_string($token) && $token !== '' && is_string($chatId) && $chatId !== '') {
+        return ['token' => $token, 'chat_id' => $chatId];
+    }
+
+    return null;
 }
 
 /**
@@ -250,6 +337,14 @@ function downloadRepo($repoUrl, $branch = 'main') {
     
     $owner = $matches[1];
     $repo = rtrim($matches[2], '.git');
+
+    $branch = (string)$branch;
+    if ($branch === '' || strlen($branch) > 64) {
+        return ['success' => false, 'error' => 'Invalid branch'];
+    }
+    if (!preg_match('/^[A-Za-z0-9._\\/-]+$/', $branch) || strpos($branch, '..') !== false || strpos($branch, '\\') !== false) {
+        return ['success' => false, 'error' => 'Invalid branch'];
+    }
     
     // GitHub archive URL
     $zipUrl = "https://github.com/{$owner}/{$repo}/archive/refs/heads/{$branch}.zip";
@@ -415,12 +510,6 @@ function copyWebDirectory($extractedPath) {
     
     if (!is_dir($sourceWeb)) {
         return ['success' => false, 'error' => 'Direktori web tidak ditemukan dalam repository'];
-    }
-    
-    // Backup current version file if exists
-    $versionBackup = '';
-    if (file_exists(VERSION_FILE)) {
-        $versionBackup = file_get_contents(VERSION_FILE);
     }
     
     // Count files

@@ -751,6 +751,10 @@ class MikroTikAPI {
         
         return end($response) === '!done';
     }
+
+    public function deleteHotspotProfile($name) {
+        return $this->deleteHotspotUserProfile($name);
+    }
     
     /**
      * Add hotspot server profile

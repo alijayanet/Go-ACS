@@ -15,6 +15,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+function getRequestApiKey() {
+    if (!empty($_SERVER['HTTP_X_API_KEY'])) {
+        return trim((string)$_SERVER['HTTP_X_API_KEY']);
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        foreach ($headers as $k => $v) {
+            if (strtolower((string)$k) === 'x-api-key') {
+                return trim((string)$v);
+            }
+        }
+    }
+    return '';
+}
+
+function loadApiKey() {
+    $adminJsonPath = __DIR__ . '/../data/admin.json';
+    if (file_exists($adminJsonPath)) {
+        $adminJson = json_decode(file_get_contents($adminJsonPath), true);
+        if (is_array($adminJson)) {
+            $key = $adminJson['api_key'] ?? ($adminJson['apikey'] ?? null);
+            if (is_string($key) && $key !== '') return $key;
+        }
+    }
+
+    $settingsPath = __DIR__ . '/../data/settings.json';
+    if (file_exists($settingsPath)) {
+        $settings = json_decode(file_get_contents($settingsPath), true);
+        $key = $settings['acs']['api_key'] ?? null;
+        if (is_string($key) && $key !== '') return $key;
+    }
+
+    $envPaths = ['/opt/acs/.env', __DIR__ . '/../../.env'];
+    foreach ($envPaths as $envFile) {
+        if (!file_exists($envFile)) continue;
+        $envContent = file_get_contents($envFile);
+        foreach (explode("\n", (string)$envContent) as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) continue;
+            if (strpos($line, '=') === false) continue;
+            list($k, $v) = explode('=', $line, 2);
+            if (trim($k) === 'API_KEY') {
+                $value = trim($v);
+                if ($value !== '') return $value;
+            }
+        }
+    }
+
+    $key = getenv('API_KEY');
+    if (is_string($key) && $key !== '') return $key;
+
+    return 'secret';
+}
+
+function requireApiKey() {
+    $provided = getRequestApiKey();
+    $expected = loadApiKey();
+    if ($provided === '' || !hash_equals((string)$expected, (string)$provided)) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+        exit;
+    }
+}
+
+requireApiKey();
+
 // Configuration file paths
 $SETTINGS_FILE = __DIR__ . '/../data/settings.json';
 $MIKROTIK_FILE = __DIR__ . '/../data/mikrotik.json';
@@ -156,25 +222,57 @@ function saveMikrotikConfig($config) {
 
 function loadAdminCredentials() {
     global $ADMIN_FILE;
-    
-    if (file_exists($ADMIN_FILE)) {
-        $data = json_decode(file_get_contents($ADMIN_FILE), true);
-        return $data['admin'] ?? ['username' => 'admin', 'password' => ''];
+    $default = ['username' => 'admin', 'password' => '', 'password_hash' => ''];
+
+    if (!file_exists($ADMIN_FILE)) {
+        return $default;
     }
-    
-    return ['username' => 'admin', 'password' => ''];
+
+    $data = json_decode(file_get_contents($ADMIN_FILE), true);
+    if (!is_array($data)) return $default;
+
+    $admin = $data['admin'] ?? $data;
+    if (!is_array($admin)) return $default;
+
+    return [
+        'username' => $admin['username'] ?? 'admin',
+        'password' => $admin['password'] ?? '',
+        'password_hash' => $admin['password_hash'] ?? ($admin['passwordHash'] ?? '')
+    ];
 }
 
-function saveAdminCredentials($username, $password) {
+function saveAdminCredentials($username, $newPassword) {
     global $ADMIN_FILE;
     
     $dir = dirname($ADMIN_FILE);
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
-    
-    $data = ['admin' => ['username' => $username, 'password' => $password]];
-    $result = file_put_contents($ADMIN_FILE, json_encode($data, JSON_PRETTY_PRINT));
+
+    $fileData = [];
+    if (file_exists($ADMIN_FILE)) {
+        $loaded = json_decode(file_get_contents($ADMIN_FILE), true);
+        if (is_array($loaded)) $fileData = $loaded;
+    }
+
+    if (!isset($fileData['admin']) && (isset($fileData['username']) || isset($fileData['password']) || isset($fileData['password_hash']) || isset($fileData['passwordHash']))) {
+        $fileData['admin'] = [
+            'username' => $fileData['username'] ?? 'admin',
+            'password' => $fileData['password'] ?? '',
+            'password_hash' => $fileData['password_hash'] ?? ($fileData['passwordHash'] ?? '')
+        ];
+        unset($fileData['username'], $fileData['password'], $fileData['password_hash'], $fileData['passwordHash']);
+    }
+
+    if (!isset($fileData['admin']) || !is_array($fileData['admin'])) {
+        $fileData['admin'] = ['username' => 'admin', 'password' => '', 'password_hash' => ''];
+    }
+
+    $fileData['admin']['username'] = $username;
+    $fileData['admin']['password_hash'] = password_hash((string)$newPassword, PASSWORD_BCRYPT);
+    unset($fileData['admin']['password'], $fileData['admin']['passwordHash']);
+
+    $result = file_put_contents($ADMIN_FILE, json_encode($fileData, JSON_PRETTY_PRINT));
 
     if ($result === false) {
         error_log("Failed to write admin credentials file: $ADMIN_FILE");
@@ -182,6 +280,62 @@ function saveAdminCredentials($username, $password) {
     }
 
     return true;
+}
+
+function verifyAdminPassword($admin, $providedPassword) {
+    $providedPassword = (string)$providedPassword;
+    $hash = is_array($admin) ? ($admin['password_hash'] ?? ($admin['passwordHash'] ?? '')) : '';
+    if (is_string($hash) && $hash !== '') {
+        return password_verify($providedPassword, $hash);
+    }
+    $legacy = is_array($admin) ? ($admin['password'] ?? '') : '';
+    if (is_string($legacy) && $legacy !== '') {
+        return hash_equals($legacy, $providedPassword);
+    }
+    return $providedPassword === '';
+}
+
+function saveAdminUsernameOnly($newUsername, $admin, $providedPassword) {
+    global $ADMIN_FILE;
+
+    $dir = dirname($ADMIN_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+
+    $fileData = [];
+    if (file_exists($ADMIN_FILE)) {
+        $loaded = json_decode(file_get_contents($ADMIN_FILE), true);
+        if (is_array($loaded)) $fileData = $loaded;
+    }
+
+    if (!isset($fileData['admin']) && (isset($fileData['username']) || isset($fileData['password']) || isset($fileData['password_hash']) || isset($fileData['passwordHash']))) {
+        $fileData['admin'] = [
+            'username' => $fileData['username'] ?? 'admin',
+            'password' => $fileData['password'] ?? '',
+            'password_hash' => $fileData['password_hash'] ?? ($fileData['passwordHash'] ?? '')
+        ];
+        unset($fileData['username'], $fileData['password'], $fileData['password_hash'], $fileData['passwordHash']);
+    }
+
+    if (!isset($fileData['admin']) || !is_array($fileData['admin'])) {
+        $fileData['admin'] = ['username' => 'admin', 'password' => '', 'password_hash' => ''];
+    }
+
+    $fileData['admin']['username'] = $newUsername;
+
+    $hash = is_array($admin) ? ($admin['password_hash'] ?? '') : '';
+    $legacy = is_array($admin) ? ($admin['password'] ?? '') : '';
+    if (is_string($hash) && $hash !== '') {
+        $fileData['admin']['password_hash'] = $hash;
+    } elseif (is_string($legacy) && $legacy !== '') {
+        $fileData['admin']['password_hash'] = password_hash((string)$providedPassword, PASSWORD_BCRYPT);
+    }
+
+    unset($fileData['admin']['password'], $fileData['admin']['passwordHash']);
+
+    $result = file_put_contents($ADMIN_FILE, json_encode($fileData, JSON_PRETTY_PRINT));
+    return $result !== false;
 }
 
 function loadEnvConfig() {
@@ -252,7 +406,8 @@ try {
             $system = getSystemInfo();
             
             // Hide passwords
-            $admin['password'] = $admin['password'] ? '********' : '';
+            $admin['password'] = ((!empty($admin['password_hash']) || !empty($admin['password'])) ? '********' : '');
+            unset($admin['password_hash']);
             foreach ($mikrotik['routers'] as &$r) {
                 $r['password'] = $r['password'] ? '********' : '';
             }
@@ -331,7 +486,7 @@ try {
                 $env = loadEnvConfig();
                 $dbConfig = [
                     'host' => '127.0.0.1', 'port' => '3306', 'dbname' => 'acs',
-                    'username' => 'root', 'password' => 'secret123'
+                    'username' => 'root', 'password' => ''
                 ];
                 
                 if (isset($env['DB_DSN'])) {
@@ -480,7 +635,7 @@ try {
             $admin = loadAdminCredentials();
             
             // Verify current password
-            if (!empty($admin['password']) && $admin['password'] !== $currentPassword) {
+            if (!verifyAdminPassword($admin, $currentPassword)) {
                 jsonResponse(['success' => false, 'error' => 'Current password is incorrect'], 400);
             }
             
@@ -502,11 +657,11 @@ try {
             $admin = loadAdminCredentials();
             
             // Verify password
-            if (!empty($admin['password']) && $admin['password'] !== $password) {
+            if (!verifyAdminPassword($admin, $password)) {
                 jsonResponse(['success' => false, 'error' => 'Password is incorrect'], 400);
             }
             
-            if (!saveAdminCredentials($newUsername, $admin['password'])) {
+            if (!saveAdminUsernameOnly($newUsername, $admin, $password)) {
                 jsonResponse(['success' => false, 'error' => 'Failed to change username. Check file permissions.'], 500);
             }
             jsonResponse(['success' => true, 'message' => 'Username changed successfully']);
@@ -537,7 +692,7 @@ try {
                         'port' => '3306',
                         'dbname' => 'acs',
                         'username' => 'root',
-                        'password' => 'secret123'
+                        'password' => ''
                     ];
                     
                     if (file_exists($envFile)) {

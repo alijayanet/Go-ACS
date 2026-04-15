@@ -863,7 +863,7 @@
 
                 const response = await fetch(ADMIN_API_BASE, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, getHeaders()),
                     body: JSON.stringify(body)
                 });
 

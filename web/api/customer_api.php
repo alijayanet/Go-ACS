@@ -20,13 +20,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+function getRequestApiKey() {
+    if (!empty($_SERVER['HTTP_X_API_KEY'])) {
+        return trim((string)$_SERVER['HTTP_X_API_KEY']);
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        foreach ($headers as $k => $v) {
+            if (strtolower((string)$k) === 'x-api-key') {
+                return trim((string)$v);
+            }
+        }
+    }
+    return '';
+}
+
+function loadApiKey() {
+    $adminJsonPath = __DIR__ . '/../data/admin.json';
+    if (file_exists($adminJsonPath)) {
+        $adminJson = json_decode(file_get_contents($adminJsonPath), true);
+        if (is_array($adminJson)) {
+            $key = $adminJson['api_key'] ?? ($adminJson['apikey'] ?? null);
+            if (is_string($key) && $key !== '') return $key;
+        }
+    }
+
+    $settingsPath = __DIR__ . '/../data/settings.json';
+    if (file_exists($settingsPath)) {
+        $settings = json_decode(file_get_contents($settingsPath), true);
+        $key = $settings['acs']['api_key'] ?? null;
+        if (is_string($key) && $key !== '') return $key;
+    }
+
+    $envPaths = ['/opt/acs/.env', __DIR__ . '/../../.env'];
+    foreach ($envPaths as $envFile) {
+        if (!file_exists($envFile)) continue;
+        $envContent = file_get_contents($envFile);
+        foreach (explode("\n", (string)$envContent) as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) continue;
+            if (strpos($line, '=') === false) continue;
+            list($k, $v) = explode('=', $line, 2);
+            if (trim($k) === 'API_KEY') {
+                $value = trim($v);
+                if ($value !== '') return $value;
+            }
+        }
+    }
+
+    $key = getenv('API_KEY');
+    if (is_string($key) && $key !== '') return $key;
+
+    return 'secret';
+}
+
+function requireApiKey() {
+    $provided = getRequestApiKey();
+    $expected = loadApiKey();
+    if ($provided === '' || !hash_equals((string)$expected, (string)$provided)) {
+        jsonResponse(['success' => false, 'message' => 'Unauthorized'], 401);
+    }
+}
+
+function isLocalRequest() {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    return $ip === '127.0.0.1' || $ip === '::1';
+}
+
 // Database configuration
 $config = [
     'host' => '127.0.0.1',
     'port' => 3306,
     'dbname' => 'acs',
     'username' => 'root',
-    'password' => 'secret123'
+    'password' => ''
 ];
 
 // Try to load from .env file
@@ -355,17 +422,39 @@ if ($method === 'POST') {
     // ---- SAVE ONU LOCATION ----
     if ($isSaveLocationRequest) {
         $isAdminTag = !empty($data['admin_tag']);
+        if ($isAdminTag) {
+            requireApiKey();
+        }
         
         // Username only required for customer tagging, not for admin tagging
         if (!$isAdminTag && empty($data['username'])) {
             jsonResponse(['success' => false, 'message' => 'Username is required'], 400);
         }
         
-        $serialNumber = $data['serial_number'];
-        $username = $data['username'] ?? $serialNumber; // Use serial number as default username for admin tags
+        $serialNumber = trim((string)$data['serial_number']);
+        if ($serialNumber === '' || strlen($serialNumber) > 64 || !preg_match('/^[A-Za-z0-9._:-]+$/', $serialNumber)) {
+            jsonResponse(['success' => false, 'message' => 'Serial number invalid'], 400);
+        }
+
+        $username = trim((string)($data['username'] ?? $serialNumber)); // Use serial number as default username for admin tags
+        if ($username === '' || strlen($username) > 50) {
+            jsonResponse(['success' => false, 'message' => 'Username invalid'], 400);
+        }
         $password = $data['password'] ?? null;
+
+        if (!isset($data['latitude']) || !isset($data['longitude'])) {
+            jsonResponse(['success' => false, 'message' => 'Latitude/Longitude is required'], 400);
+        }
+
+        if (!is_numeric($data['latitude']) || !is_numeric($data['longitude'])) {
+            jsonResponse(['success' => false, 'message' => 'Latitude/Longitude invalid'], 400);
+        }
+
         $latitude = (float)$data['latitude'];
         $longitude = (float)$data['longitude'];
+        if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+            jsonResponse(['success' => false, 'message' => 'Latitude/Longitude invalid'], 400);
+        }
         $hashedPassword = $password ? hashPassword($password) : null;
         
         $successDB = false;
@@ -454,7 +543,11 @@ if ($method === 'POST') {
         if ($successDB) {
             jsonResponse(['success' => true, 'message' => 'Location and login data saved to Database']);
         } else {
-            jsonResponse(['success' => true, 'message' => 'Saved to local JSON storage (Database unavailable)', 'db_error' => $messageDB]);
+            $resp = ['success' => false, 'message' => 'Database unavailable or save failed'];
+            if (isLocalRequest() && $messageDB !== '') {
+                $resp['db_error'] = $messageDB;
+            }
+            jsonResponse($resp, 503);
         }
     }
     
@@ -472,6 +565,7 @@ if ($method === 'GET') {
     $action = $_GET['action'] ?? '';
     
     if ($action === 'get_all_locations') {
+        requireApiKey();
         // Return all ONU locations from database
         $locations = [];
         

@@ -45,6 +45,37 @@ switch ($action) {
         echo json_encode(['success' => false, 'error' => 'Invalid action']);
 }
 
+function getSessionStorePath() {
+    return __DIR__ . '/../data/admin_sessions.json';
+}
+
+function loadSessions() {
+    $path = getSessionStorePath();
+    if (!file_exists($path)) return [];
+    $data = json_decode((string)file_get_contents($path), true);
+    return is_array($data) ? $data : [];
+}
+
+function saveSessions($sessions) {
+    $path = getSessionStorePath();
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0777, true);
+    }
+    $json = json_encode($sessions, JSON_PRETTY_PRINT);
+    if ($json === false) return false;
+    return file_put_contents($path, $json, LOCK_EX) !== false;
+}
+
+function pruneExpiredSessions($sessions) {
+    $now = time();
+    foreach ($sessions as $k => $s) {
+        $exp = isset($s['expiry']) ? (int)$s['expiry'] : 0;
+        if ($exp <= $now) unset($sessions[$k]);
+    }
+    return $sessions;
+}
+
 function handleLogin($input) {
     $username = trim($input['username'] ?? '');
     $password = $input['password'] ?? '';
@@ -66,6 +97,7 @@ function handleLogin($input) {
     $validApiKey = null;
     $validUsername = null;
     $validPassword = null;
+    $validPasswordHash = null;
     $source = 'none';
     
     // 1. Try admin.json first (most reliable)
@@ -77,10 +109,12 @@ function handleLogin($input) {
             if (isset($adminJson['admin'])) {
                 $validUsername = $adminJson['admin']['username'] ?? 'admin';
                 $validPassword = $adminJson['admin']['password'] ?? null;
+                $validPasswordHash = $adminJson['admin']['password_hash'] ?? ($adminJson['admin']['passwordHash'] ?? null);
             } else {
                 // Flat structure (old format)
                 $validUsername = $adminJson['username'] ?? 'admin';
                 $validPassword = $adminJson['password'] ?? null;
+                $validPasswordHash = $adminJson['password_hash'] ?? ($adminJson['passwordHash'] ?? null);
             }
             // API key is always at root level
             $validApiKey = $adminJson['api_key'] ?? $adminJson['apikey'] ?? null;
@@ -136,7 +170,6 @@ function handleLogin($input) {
     if (empty($validApiKey)) {
         $validApiKey = 'secret';
         $source = 'default';
-        error_log('WARNING: auth_api.php - Using default API key "secret"');
     }
     
     // Default credentials if not loaded
@@ -152,17 +185,13 @@ function handleLogin($input) {
     // ========================================
     
     $isUsernameValid = ($username === $validUsername);
-    $isPasswordValid = ($password === $validPassword);
-    
-    // Also allow some default passwords for compatibility
-    if (!$isPasswordValid && $validPassword === 'admin123') {
-        $isPasswordValid = in_array($password, ['admin', 'admin123', 'password']);
+    $isPasswordValid = false;
+    if (!empty($validPasswordHash)) {
+        $isPasswordValid = password_verify((string)$password, (string)$validPasswordHash);
+    } else {
+        $isPasswordValid = ($password === $validPassword);
     }
-    
     $isApiKeyValid = ($apikey === $validApiKey);
-    
-    // Debug logging (remove in production)
-    error_log("auth_api.php DEBUG: source=$source, username_valid=$isUsernameValid, password_valid=$isPasswordValid, apikey_valid=$isApiKeyValid");
     
     if (!$isUsernameValid || !$isPasswordValid) {
         echo json_encode([
@@ -175,14 +204,41 @@ function handleLogin($input) {
     if (!$isApiKeyValid) {
         echo json_encode([
             'success' => false,
-            'error' => 'API Key tidak valid! (Hint: default = secret)'
+            'error' => 'API Key tidak valid'
         ]);
         return;
+    }
+
+    if ($source === 'admin.json' && empty($validPasswordHash) && !empty($validPassword)) {
+        $adminJson = json_decode(@file_get_contents($adminJsonPath), true);
+        if (is_array($adminJson)) {
+            if (isset($adminJson['admin']) && is_array($adminJson['admin'])) {
+                $adminJson['admin']['password_hash'] = password_hash((string)$password, PASSWORD_BCRYPT);
+                unset($adminJson['admin']['password'], $adminJson['admin']['passwordHash']);
+            } else {
+                $adminJson['password_hash'] = password_hash((string)$password, PASSWORD_BCRYPT);
+                unset($adminJson['password'], $adminJson['passwordHash']);
+            }
+            @file_put_contents($adminJsonPath, json_encode($adminJson, JSON_PRETTY_PRINT));
+        }
     }
     
     // Login successful
     $sessionToken = bin2hex(random_bytes(32));
     $expiry = time() + (24 * 60 * 60); // 24 hours
+
+    $sessions = loadSessions();
+    $sessions = pruneExpiredSessions($sessions);
+    $tokenHash = hash('sha256', $sessionToken);
+    $sessions[$tokenHash] = [
+        'username' => $username,
+        'expiry' => $expiry,
+        'created_at' => time(),
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+        'ua' => isset($_SERVER['HTTP_USER_AGENT']) ? substr((string)$_SERVER['HTTP_USER_AGENT'], 0, 200) : null,
+        'source' => $source
+    ];
+    saveSessions($sessions);
     
     echo json_encode([
         'success' => true,
@@ -205,11 +261,21 @@ function verifySession($input) {
         return;
     }
     
-    // TODO: Verify token against database/session storage
-    // For now, just return success
+    $sessions = loadSessions();
+    $sessions = pruneExpiredSessions($sessions);
+    saveSessions($sessions);
+
+    $tokenHash = hash('sha256', (string)$token);
+    $session = $sessions[$tokenHash] ?? null;
+    $valid = is_array($session) && ((int)($session['expiry'] ?? 0) > time());
+
     echo json_encode([
         'success' => true,
-        'valid' => true
+        'valid' => $valid,
+        'data' => $valid ? [
+            'username' => $session['username'] ?? null,
+            'expiry' => (int)($session['expiry'] ?? 0)
+        ] : null
     ]);
 }
 

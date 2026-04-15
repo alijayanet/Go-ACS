@@ -5,13 +5,25 @@
         "timezone": "Asia\/Jakarta",
         "currency": "IDR",
         "date_format": "d\/m\/Y",
-        "language": "id"
+        "language": "id",
+        "address": "",
+        "phone": "",
+        "email": ""
     },
     "acs": {
         "api_url": "http:\/\/localhost:7547",
         "api_key": "secret",
         "periodic_inform_interval": 300,
         "auto_refresh_interval": 15
+    },
+    "hotspot": {
+        "backend": "mikrotik",
+        "backup_to_radius": true,
+        "selected_router_id": "router1",
+        "radius_server_ip": "",
+        "radius": {
+            "enabled": true
+        }
     },
     "telegram": {
         "enabled": true,
@@ -32,17 +44,5 @@
         "enabled": false,
         "api_url": "",
         "api_key": ""
-    },
-    "hotspot": {
-        "backend": "mikrotik",
-        "backup_to_radius": true,
-        "radius": {
-            "enabled": true,
-            "db_host": "127.0.0.1",
-            "db_port": 3306,
-            "db_name": "radius",
-            "db_user": "radius",
-            "db_pass": "secret123"
-        }
     }
 }

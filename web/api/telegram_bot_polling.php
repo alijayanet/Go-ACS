@@ -37,6 +37,7 @@ $PID_FILE = '/var/run/telegram_bot.pid';
 
 // Load configuration from database or file
 function loadConfig() {
+    global $SCRIPT_DIR;
     $pdo = getDB();
     
     // Try database first
@@ -94,7 +95,7 @@ function getDB() {
         'port' => '3306',
         'dbname' => 'acs',
         'username' => 'root',
-        'password' => 'secret123'
+        'password' => ''
     ];
     
     if (file_exists($envFile)) {

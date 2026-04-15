@@ -671,6 +671,37 @@
         // Use relative API path for better compatibility
         const API = `${window.location.protocol}//${window.location.hostname}:8888/api/billing_api.php`;
 
+        function getApiKey() {
+            try {
+                const raw = sessionStorage.getItem('acs_session') || localStorage.getItem('acs_session');
+                if (!raw) return '';
+                const session = JSON.parse(raw);
+                return (session && (session.apikey || session.api_key)) ? String(session.apikey || session.api_key) : '';
+            } catch (e) {
+                return '';
+            }
+        }
+
+        (function () {
+            const _fetch = window.fetch.bind(window);
+            window.fetch = function (url, options) {
+                const apiKey = getApiKey();
+                if (apiKey) {
+                    const target = (typeof url === 'string') ? url : (url && url.url ? url.url : '');
+                    if (typeof target === 'string' && target.indexOf(':8888/api/') !== -1) {
+                        options = options || {};
+                        const headers = options.headers || {};
+                        if (headers instanceof Headers) {
+                            if (!headers.has('X-API-Key')) headers.set('X-API-Key', apiKey);
+                        } else {
+                            options.headers = Object.assign({}, headers, { 'X-API-Key': apiKey });
+                        }
+                    }
+                }
+                return _fetch(url, options);
+            };
+        })();
+
         let allCustomers = [];
         let packages = [];
         let currentFilter = '';

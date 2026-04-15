@@ -82,7 +82,7 @@ function getDB() {
         'port' => '3306',
         'dbname' => 'acs',
         'username' => 'root',
-        'password' => 'secret123'
+        'password' => ''
     ];
     
     if (file_exists($envFile)) {
@@ -393,7 +393,7 @@ function handleCommand($chatId, $command, $args = '') {
         // Member dengan username dan password berbeda
         case '/member':
             if (empty($args)) {
-                sendMessage($chatId, "❌ Format: /member [user] [password] [profile]\n\nContoh: /member ahmad secret123 10k\n\n💡 User dan password berbeda", backToMainKeyboard());
+                sendMessage($chatId, "❌ Format: /member [user] [password] [profile]\n\nContoh: /member ahmad password 10k\n\n💡 User dan password berbeda", backToMainKeyboard());
             } else {
                 createMemberManual($chatId, $args);
             }
@@ -1397,7 +1397,7 @@ function createVoucherManual($chatId, $args, $samePassword = true) {
 function createMemberManual($chatId, $args) {
     $parts = explode(' ', $args);
     if (count($parts) < 3) {
-        sendMessage($chatId, "❌ Format: /member [user] [password] [profile]\n\nContoh: /member ahmad secret123 10k", backToMainKeyboard());
+        sendMessage($chatId, "❌ Format: /member [user] [password] [profile]\n\nContoh: /member ahmad password 10k", backToMainKeyboard());
         return;
     }
     

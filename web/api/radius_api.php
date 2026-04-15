@@ -11,6 +11,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+function getRequestApiKey() {
+    if (!empty($_SERVER['HTTP_X_API_KEY'])) {
+        return trim((string)$_SERVER['HTTP_X_API_KEY']);
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        foreach ($headers as $k => $v) {
+            if (strtolower((string)$k) === 'x-api-key') {
+                return trim((string)$v);
+            }
+        }
+    }
+    return '';
+}
+
+function loadApiKey() {
+    $adminJsonPath = __DIR__ . '/../data/admin.json';
+    if (file_exists($adminJsonPath)) {
+        $adminJson = json_decode(file_get_contents($adminJsonPath), true);
+        if (is_array($adminJson)) {
+            $key = $adminJson['api_key'] ?? ($adminJson['apikey'] ?? null);
+            if (is_string($key) && $key !== '') return $key;
+        }
+    }
+
+    $settingsPath = __DIR__ . '/../data/settings.json';
+    if (file_exists($settingsPath)) {
+        $settings = json_decode(file_get_contents($settingsPath), true);
+        $key = $settings['acs']['api_key'] ?? null;
+        if (is_string($key) && $key !== '') return $key;
+    }
+
+    $envPaths = ['/opt/acs/.env', __DIR__ . '/../../.env'];
+    foreach ($envPaths as $envFile) {
+        if (!file_exists($envFile)) continue;
+        $envContent = file_get_contents($envFile);
+        foreach (explode("\n", (string)$envContent) as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) continue;
+            if (strpos($line, '=') === false) continue;
+            list($k, $v) = explode('=', $line, 2);
+            if (trim($k) === 'API_KEY') {
+                $value = trim($v);
+                if ($value !== '') return $value;
+            }
+        }
+    }
+
+    $key = getenv('API_KEY');
+    if (is_string($key) && $key !== '') return $key;
+
+    return 'secret';
+}
+
+function requireApiKey() {
+    $provided = getRequestApiKey();
+    $expected = loadApiKey();
+    if ($provided === '' || !hash_equals((string)$expected, (string)$provided)) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+        exit;
+    }
+}
+
+requireApiKey();
+
 $SETTINGS_FILE = __DIR__ . '/../data/settings.json';
 $RADIUS_CLIENTS_FILE = __DIR__ . '/../data/radius_clients.json';
 $PPPOE_PLANS_FILE = __DIR__ . '/../data/pppoe_plans.json';
@@ -33,7 +99,7 @@ function loadSettings() {
                 'db_port' => 3306,
                 'db_name' => 'radius',
                 'db_user' => 'radius',
-                'db_pass' => 'secret123'
+                'db_pass' => ''
             ]
         ]
     ];
@@ -51,11 +117,20 @@ function getRadiusDbCfg() {
     return $settings['hotspot']['radius'] ?? [];
 }
 
+function radiusEnabled() {
+    $cfg = getRadiusDbCfg();
+    return !empty($cfg['enabled']);
+}
+
 function pdoRadius() {
     $cfg = getRadiusDbCfg();
 
+    if (empty($cfg['enabled'])) {
+        throw new Exception('RADIUS is disabled in Settings (hotspot.radius.enabled=false).', 409);
+    }
+
     if (empty($cfg['db_host']) || empty($cfg['db_name']) || empty($cfg['db_user'])) {
-        throw new Exception('RADIUS DB config is incomplete. Configure it in Settings (hotspot.radius.*).');
+        throw new Exception('RADIUS DB config is incomplete. Configure it in Settings (hotspot.radius.*).', 400);
     }
 
     $dsn = "mysql:host={$cfg['db_host']};port={$cfg['db_port']};dbname={$cfg['db_name']};charset=utf8mb4";
@@ -88,6 +163,8 @@ function deleteRadiusUser(PDO $db, $username) {
 }
 
 function serviceIsActive() {
+    $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+    if ($isWindows) return false;
     $out = @shell_exec('systemctl is-active freeradius 2>/dev/null');
     return trim((string)$out) === 'active';
 }
@@ -282,6 +359,7 @@ try {
 
             jsonResponse([
                 'success' => true,
+                'enabled' => radiusEnabled(),
                 'service_active' => $serviceActive,
                 'db_ok' => $dbOk,
                 'stats' => $stats,
@@ -290,12 +368,18 @@ try {
             break;
 
         case 'test_db':
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
             $pdo = pdoRadius();
             $pdo->query('SELECT 1');
             jsonResponse(['success' => true, 'message' => 'RADIUS DB connection OK']);
             break;
 
         case 'cleanup_orphaned':
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
             $pdo = pdoRadius();
             
             // Count orphaned sessions first
@@ -366,13 +450,35 @@ try {
             break;
 
         case 'apply_clients':
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled'], 409);
+            }
             $data = loadClients();
             $clients = $data['clients'] ?? [];
             $content = buildClientsConf($clients);
+            $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+            if ($isWindows) {
+                jsonResponse(['success' => false, 'error' => 'apply_clients is not supported on Windows'], 501);
+            }
+
+            $paths = [
+                '/etc/freeradius/3.0/clients.conf',
+                '/etc/freeradius/clients.conf',
+                '/etc/raddb/clients.conf'
+            ];
+            $found = false;
+            foreach ($paths as $p) {
+                if (file_exists($p)) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                jsonResponse(['success' => false, 'error' => 'FreeRADIUS clients.conf not found. Install FreeRADIUS or run this on the RADIUS server host.'], 409);
+            }
+
             $path = writeClientsConf($content);
-
             @shell_exec('systemctl restart freeradius 2>/dev/null');
-
             jsonResponse(['success' => true, 'message' => "Applied clients to {$path} and restarted freeradius" ]);
             break;
 
@@ -424,6 +530,9 @@ try {
             $limit = max(1, min($limit, 1000));
             $username = trim($_GET['username'] ?? '');
 
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
             $pdo = pdoRadius();
             
             if ($username !== '') {
@@ -438,6 +547,9 @@ try {
             break;
 
         case 'active_sessions':
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
             $pdo = pdoRadius();
             $stmt = $pdo->query("
                 SELECT username, framedipaddress, nasipaddress, acctstarttime, 
@@ -453,6 +565,10 @@ try {
         case 'disconnect_session':
             $username = trim($input['username'] ?? '');
             $sessionId = trim($input['session_id'] ?? '');
+
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
             
             if ($username === '') {
                 jsonResponse(['success' => false, 'error' => 'Username is required'], 400);
@@ -480,6 +596,9 @@ try {
             $limit = (int)($_GET['limit'] ?? 500);
             $limit = max(1, min($limit, 2000));
 
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
             $pdo = pdoRadius();
 
             $sql = "
@@ -522,6 +641,10 @@ try {
             $planId = trim((string)($input['plan_id'] ?? ''));
             $rateLimit = trim((string)($input['rate_limit'] ?? ''));
             $sessionTimeout = (int)($input['session_timeout'] ?? 0);
+
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
 
             if ($username === '' || $password === '') {
                 jsonResponse(['success' => false, 'error' => 'Username and password are required'], 400);
@@ -610,6 +733,9 @@ try {
 
         case 'delete_pppoe_user':
             $username = trim($input['username'] ?? '');
+            if (!radiusEnabled()) {
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false).'], 409);
+            }
             if ($username === '') {
                 jsonResponse(['success' => false, 'error' => 'Username is required'], 400);
             }
@@ -649,5 +775,7 @@ try {
             ]);
     }
 } catch (Exception $e) {
-    jsonResponse(['success' => false, 'error' => $e->getMessage()], 500);
+    $code = (int)$e->getCode();
+    if ($code < 400 || $code > 599) $code = 500;
+    jsonResponse(['success' => false, 'error' => $e->getMessage()], $code);
 }

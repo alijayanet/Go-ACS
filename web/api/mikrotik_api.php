@@ -28,6 +28,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+function getRequestApiKey() {
+    if (!empty($_SERVER['HTTP_X_API_KEY'])) {
+        return trim((string)$_SERVER['HTTP_X_API_KEY']);
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        foreach ($headers as $k => $v) {
+            if (strtolower((string)$k) === 'x-api-key') {
+                return trim((string)$v);
+            }
+        }
+    }
+    return '';
+}
+
+function loadApiKey() {
+    $adminJsonPath = __DIR__ . '/../data/admin.json';
+    if (file_exists($adminJsonPath)) {
+        $adminJson = json_decode(file_get_contents($adminJsonPath), true);
+        if (is_array($adminJson)) {
+            $key = $adminJson['api_key'] ?? ($adminJson['apikey'] ?? null);
+            if (is_string($key) && $key !== '') return $key;
+        }
+    }
+
+    $settingsPath = __DIR__ . '/../data/settings.json';
+    if (file_exists($settingsPath)) {
+        $settings = json_decode(file_get_contents($settingsPath), true);
+        $key = $settings['acs']['api_key'] ?? null;
+        if (is_string($key) && $key !== '') return $key;
+    }
+
+    $envPaths = ['/opt/acs/.env', __DIR__ . '/../../.env'];
+    foreach ($envPaths as $envFile) {
+        if (!file_exists($envFile)) continue;
+        $envContent = file_get_contents($envFile);
+        foreach (explode("\n", (string)$envContent) as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) continue;
+            if (strpos($line, '=') === false) continue;
+            list($k, $v) = explode('=', $line, 2);
+            if (trim($k) === 'API_KEY') {
+                $value = trim($v);
+                if ($value !== '') return $value;
+            }
+        }
+    }
+
+    $key = getenv('API_KEY');
+    if (is_string($key) && $key !== '') return $key;
+
+    return 'secret';
+}
+
+function requireApiKey() {
+    $provided = getRequestApiKey();
+    $expected = loadApiKey();
+    if ($provided === '' || !hash_equals((string)$expected, (string)$provided)) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+        exit;
+    }
+}
+
+requireApiKey();
+
 require_once __DIR__ . '/MikroTikAPI.php';
 
 // ========================================
@@ -95,6 +161,16 @@ function normalizeIp($ipOrCidr) {
     if ($ipOrCidr === '') return '';
     $parts = explode('/', $ipOrCidr, 2);
     return trim($parts[0]);
+}
+
+function getRadiusDbCfg() {
+    $settings = loadSettingsFile();
+    return $settings['hotspot']['radius'] ?? [];
+}
+
+function radiusEnabled() {
+    $cfg = getRadiusDbCfg();
+    return !empty($cfg['enabled']);
 }
 
 function guessRadiusSecretForRouter($routerIp) {
@@ -519,6 +595,11 @@ try {
             $api = $result['api'];
             $router = $result['router'];
 
+            if (!radiusEnabled()) {
+                $api->disconnect();
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false). Enable it first.'], 409);
+            }
+
             $radiusIp = trim((string)($input['radius_ip'] ?? ''));
             if ($radiusIp === '') {
                 $radiusIp = serverIpGuess();
@@ -639,6 +720,11 @@ try {
 
             $api = $result['api'];
             $router = $result['router'];
+
+            if (!radiusEnabled()) {
+                $api->disconnect();
+                jsonResponse(['success' => false, 'error' => 'RADIUS is disabled in Settings (hotspot.radius.enabled=false). Enable it first.'], 409);
+            }
 
             $radiusIp = trim((string)($input['radius_ip'] ?? ''));
             if ($radiusIp === '') {

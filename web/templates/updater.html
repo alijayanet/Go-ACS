@@ -448,6 +448,25 @@
         const API = `http://${window.location.hostname}:8888/api/updater_api.php`;
         let updateInProgress = false;
 
+        function getApiKey() {
+            try {
+                const raw = sessionStorage.getItem('acs_session') || localStorage.getItem('acs_session');
+                if (!raw) return '';
+                const session = JSON.parse(raw);
+                return (session && (session.apikey || session.api_key)) ? String(session.apikey || session.api_key) : '';
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function getHeaders(isJson = false) {
+            const headers = {};
+            const apiKey = getApiKey();
+            if (apiKey) headers['X-API-Key'] = apiKey;
+            if (isJson) headers['Content-Type'] = 'application/json';
+            return headers;
+        }
+
         // Check current and latest version on page load
         document.addEventListener('DOMContentLoaded', function () {
             checkVersion();
@@ -459,12 +478,16 @@
 
             try {
                 // Get current version
-                const currentRes = await fetch(API + '?action=current_version');
+                const currentRes = await fetch(API + '?action=current_version', {
+                    headers: getHeaders(false)
+                });
                 const currentData = await currentRes.json();
                 document.getElementById('current-version').textContent = currentData.version || 'Unknown';
 
                 // Get latest version from GitHub
-                const latestRes = await fetch(API + '?action=latest_version&repo=' + encodeURIComponent(repoUrl) + '&branch=' + encodeURIComponent(branch));
+                const latestRes = await fetch(API + '?action=latest_version&repo=' + encodeURIComponent(repoUrl) + '&branch=' + encodeURIComponent(branch), {
+                    headers: getHeaders(false)
+                });
                 const latestData = await latestRes.json();
 
                 if (latestData.success) {
@@ -521,7 +544,7 @@
 
                 const downloadRes = await fetch(API, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(true),
                     body: JSON.stringify({
                         action: 'download',
                         repo_url: repoUrl,
@@ -543,7 +566,7 @@
 
                 const extractRes = await fetch(API, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(true),
                     body: JSON.stringify({
                         action: 'extract',
                         zip_path: downloadData.zip_path
@@ -564,7 +587,7 @@
 
                 const copyRes = await fetch(API, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(true),
                     body: JSON.stringify({
                         action: 'copy_web',
                         extracted_path: extractData.extracted_path,
@@ -587,7 +610,7 @@
 
                 const cleanupRes = await fetch(API, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(true),
                     body: JSON.stringify({
                         action: 'cleanup',
                         zip_path: downloadData.zip_path,
